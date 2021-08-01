@@ -1,3 +1,17 @@
+const AUTH_URL = 'http://localhost:8000';
+const ICE_SERVERS = [
+    {
+        urls: 'stun:stun.wowl.liokor.com:3478',
+        username: 'wowl',
+        credential: 'qwerty123'
+    },
+    {
+        urls: 'turn:turn.wowl.liokor.com:3478',
+        username: 'wowl',
+        credential: 'qwerty123'
+    }
+];
+
 class App {
     constructor() {
         this.stream = null;
@@ -5,6 +19,7 @@ class App {
 
         this.id = null;
         this.username = null;
+        this.muted = false;
 
         this.online = false;
         this.active = false;
@@ -33,11 +48,10 @@ class App {
         if (!window.localStorage.getItem('hasMediaPermission')) {
             alert('We will ask you to give us permission to access your camera and mic. We need this to display the list of your devives. We won\'t use them until you join the voice channel.');
         }
-        return await this.__createStream(true, true);
+        return await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
     }
 
     async init() {
-        this.username = this.__getUsername();
         let stream = null;
 
         try {
@@ -68,32 +82,64 @@ class App {
         }
 
         try {
-            this.stream = await await navigator.mediaDevices.getUserMedia({
-                audio: {
-                    deviceId: this.mediaDeviceSelectView.getDeviceId(),
-                    echoCancellation: true
-                },
-                video: false,
-            });
-        } catch (e) {
-            alert('unable to access mic, try refreshing the page');
-            return;
-        }
-
-        try {
-            this.ws = await this.__createWebsocket(this.pc);
+            this.ws = await this.__createWebsocket();
         } catch (e) {
             alert('unable to connect to WS server, please try again later');
             return;
         }
 
+        const jwt = await this.auth();
+        /*const data = JSON.parse(atob(jwt.split('.')[1]));
+        const username = data.username;
+        usernameSpan.innerHTML = username;*/
+
         this.send({
-            command: 'username',
-            data: this.username
+            command: 'auth',
+            data: jwt
         });
     }
 
-    close() {
+    async auth() {
+        const res = await fetch(`${AUTH_URL}/profile/api/jwt_token/`, {
+            method: 'post',
+            mode: 'cors',
+            credentials: 'include',
+        });
+        if (res.ok) {
+            return await res.text();
+        } else {
+            console.log('User is not authenticated! Redirecting...');
+            document.location.replace(`${AUTH_URL}/?next=${window.location.origin}`);
+        }
+    }
+
+    async join() {
+        if (this.active) {
+            return;
+        }
+
+        try {
+            this.stream = await await navigator.mediaDevices.getUserMedia({
+                audio: {
+                    deviceId: this.mediaDeviceSelectView.getDeviceId(),
+                    echoCancellation: true,
+                    noiseSuppression: true
+                },
+                video: false,
+            });
+            console.log('Media stream created');
+            console.log(this.stream.getTracks()[0].getSettings());
+        } catch (e) {
+            alert('unable to access mic, try refreshing the page');
+            return;
+        }
+
+        this.send({
+            command: 'getUsers'
+        });
+    }
+
+    leave() {
         if (this.stream) {
             for (const track of this.stream.getTracks()) {
                 track.stop();
@@ -112,7 +158,9 @@ class App {
 
         this.users = []
         this.usersView.render(this.users);
+    }
 
+    close() {
         if (this.ws) {
             this.ws.close();
         }
@@ -121,18 +169,9 @@ class App {
     }
 
     send(data) {
-        this.ws.send(JSON.stringify(data));
-    }
-
-    __getUsername() {
-        let username = window.localStorage.getItem('username');
-        while (!username) {
-            username = window.prompt('Enter your username (you wouldn\'t be able to change it easily)');
+        if (this.online) {
+            this.ws.send(JSON.stringify(data));
         }
-        window.localStorage.setItem('username', username);
-        usernameSpan.innerHTML = username;
-
-        return username;
     }
 
     __getWsAddr() {
@@ -152,6 +191,10 @@ class App {
 
     async __offerReceived(offer, from) {
         const user = this.__getUser(from);
+        if (!user) {
+            console.log(`ERROR: unable to find user with id = ${from}`);
+            return;
+        }
         console.log(`RTC offer received from ${user.username}`);
 
         user.pc = await this.__createPeerConnection(user.id, this.stream);
@@ -160,7 +203,6 @@ class App {
         await user.pc.setLocalDescription(answer);
         this.send({
             to: user.id,
-            from: this.id,
             command: 'answer',
             data: answer
         });
@@ -168,7 +210,18 @@ class App {
 
     async __answerReceived(answer, from) {
         const user = this.__getUser(from);
+
+        if (!user) {
+            console.log(`ERROR: unable to find user with id = ${from}`);
+            return;
+        }
+
         console.log(`RTC answer received from ${user.username}`);
+
+        if (!user.pc) {
+            console.log(`ERROR: ${user.username} does not have peer connection!`);
+            return;
+        }
 
         await user.pc.setRemoteDescription(answer);
     }
@@ -225,7 +278,6 @@ class App {
 
                 this.send({
                     to: user.id,
-                    from: this.id,
                     command: 'offer',
                     data: offer
                 });
@@ -233,8 +285,10 @@ class App {
         }
     }
 
-    async __createStream(audio = true, video = false) {
-        return await navigator.mediaDevices.getUserMedia({ audio, video });
+    async __selfInfoReceived(user) {
+        userAvatarImg.src = user.avatarUrl;
+        usernameLink.href = user.profileUrl;
+        usernameLink.innerHTML = user.username + user.utfIcon;
     }
 
     async __connectedReceived(user) {
@@ -251,6 +305,7 @@ class App {
 
         return new Promise((resolve, reject) => {
             const wsCommands = {
+                'selfInfo': this.__selfInfoReceived.bind(this),
                 'candidate': this.__candidateReceived.bind(this),
                 'offer': this.__offerReceived.bind(this),
                 'answer': this.__answerReceived.bind(this),
@@ -302,18 +357,7 @@ class App {
         const user = this.__getUser(id);
 
         const pc = new RTCPeerConnection({
-            iceServers: [
-                {
-                    urls: 'stun:stun.wowl.liokor.com:3478',
-                    username: 'wowl',
-                    credential: 'qwerty123'
-                },
-                {
-                    urls: 'turn:turn.wowl.liokor.com:3478',
-                    username: 'wowl',
-                    credential: 'qwerty123'
-                }
-            ]
+            iceServers: ICE_SERVERS
         });
 
         for (const track of stream.getTracks()) {
@@ -327,7 +371,6 @@ class App {
 
             this.send({
                 to: id,
-                from: this.id,
                 command: 'candidate',
                 data: ev.candidate
             });
@@ -346,21 +389,40 @@ class App {
 
         return pc;
     }
+
+    mute(mute = true) {
+        if (this.stream) {
+            const tracks = this.stream.getTracks();
+            for (const track of tracks) {
+                if (track.kind === 'audio') {
+                    track.enabled = !mute;
+                }
+            }
+        }
+
+        this.muted = mute;
+        muteBtn.innerHTML = (mute)? 'Unmute': 'Mute';
+    }
 }
+
 async function main() {
     const app = new App();
     await app.init();
-    // await app.connect();
+    await app.connect();
+    await app.join();
 
     window.addEventListener('beforeunload', (e) => {
         app.close()
     });
 
-    connectBtn.addEventListener('click', () => {
-        app.connect();
+    muteBtn.addEventListener('click', () => {
+        app.mute(!app.muted);
+    });
+    wolcharnia.addEventListener('click', () => {
+        app.join();
     });
     disconnectBtn.addEventListener('click', () => {
-        app.close();
+        app.leave();
     });
 }
 

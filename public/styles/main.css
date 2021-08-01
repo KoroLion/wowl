@@ -1,0 +1,27 @@
+body {
+    margin: 0;
+    padding: 10px;
+    font-family: Tahoma;
+}
+
+body.dark {
+    background-color: #282C34;
+    color: #DADADA;
+}
+
+.lobby-name {
+    transition: 0.2s ease color;
+    cursor: pointer;
+}
+.lobby-name:hover {
+    color: orange;
+}
+
+a {
+    color: #FAFAFA;
+    transition: 0.2s ease all;
+}
+
+a:hover {
+    color: orange;
+}

@@ -1,33 +1,83 @@
 const http = require('http');
+const express = require('express');
 const WebSocket = require('ws');
+const jwt = require('jsonwebtoken');
+
+const JWT_KEY = 'ASDMkoehv89uaijnckASJDc80asjhn54ufjSNU@#35jr0fU(@nfjsd0uy02hn';
 
 class User {
-    constructor(id, username, ws) {
+    constructor(id, ws) {
         this.id = id;
-        this.username = username;
         this.ws = ws;
+
+        this.username = null;
+        this.profileUrl = null;
+        this.avatarUrl = null;
+        this.utfIcon = null;
+
+        /*this.groupName = null;
+        this.color = null;*/
     }
 
     send(data) {
-        this.ws.send(data);
+        this.ws.send(JSON.stringify(data));
     }
 
     data() {
         return {
             id: this.id,
-            username: this.username
+            username: this.username,
+            profileUrl: this.profileUrl,
+            avatarUrl: this.avatarUrl,
+            utfIcon: this.utfIcon
         }
     }
 }
 
 class Server {
-    constructor(port) {
+    __auth(curUser, token) {
+        let userData = {}
+        try {
+            userData = jwt.verify(token, JWT_KEY);
+        } catch (e) {
+            console.log('WARN: User with incorrect token was kicked');
+            curUser.ws.close();
+            return;
+        }
+
+        curUser.username = userData.username;
+        curUser.profileUrl = userData.profileUrl;
+        curUser.avatarUrl = userData.avatarUrl;
+        curUser.utfIcon = (userData.utfIcon)? userData.utfIcon: '';
+
+        this.users.push(curUser);
+        curUser.send({
+            command: 'selfInfo',
+            data: curUser.data()
+        });
+        this.sendAll({
+            command: 'connected',
+            data: curUser.data()
+        }, curUser.id);
+
+        console.log(`${curUser.username} connected! (${this.wsServer.clients.size} clients now)`);
+    }
+
+    __getUsers(curUser) {
+        const users = [];
+        this.users.map((user) => users.push(user.data()));
+
+        curUser.send({
+            to: curUser.id,
+            command: 'users',
+            data: users
+        });
+    }
+
+    constructor(httpServer) {
         this.curId = 1;
 
-        this.port = port;
-
-        this.httpServer = http.createServer();
-        this.wsServer = new WebSocket.Server({ server: this.httpServer });
+        this.wsServer = new WebSocket.Server({ server: httpServer });
 
         this.users = []
 
@@ -37,51 +87,40 @@ class Server {
         });
 
         this.wsServer.on('connection', (ws) => {
-            const curUser = new User(this.curId++, null, ws);
+            const curUser = new User(this.curId++, ws);
 
             ws.on('message', (message) => {
                 const data = JSON.parse(message);
-                if (!data.command || !data.data) {
+                if (!data.command) {
                     console.log(`incorrect message received: ${message}`);
                     return;
                 }
 
-                if (data.command === 'username') {
-                    curUser.username = data.data;
-                    this.users.push(curUser)
-                    this.sendAll(JSON.stringify({
-                        command: 'connected',
-                        data: curUser.data()
-                    }), curUser.id);
+                if (data.command === 'auth') {
+                    this.__auth(curUser, data.data);
+                } else if (!curUser.username) {
+                    return;
+                }
 
-                    console.log(`${curUser.username} connected! (${this.wsServer.clients.size} clients now)`);
-
-                    const users = [];
-                    this.users.map((user) => users.push(user.data()));
-
-                    curUser.send(JSON.stringify({
-                        to: curUser.id,
-                        command: 'users',
-                        data: users
-                    }));
+                if (data.command === 'getUsers') {
+                    this.__getUsers(curUser);
                 } else if (data.to) {
                     const user = this.getUser(data.to);
                     if (!user) {
                         console.log(`User with id = ${data.to} was not found!`);
                         return;
                     }
-                    user.send(message);
-                } else {
-                    console.log(`${user.username} retranslating ${data}`);
-                    this.sendAll(message, user.id);
+
+                    data.from = curUser.id;
+                    user.send(data);
                 }
             });
 
             ws.on('close', () => {
-                this.sendAll(JSON.stringify({
+                this.sendAll({
                     command: 'disconnected',
                     data: curUser.id
-                }), curUser.id);
+                }, curUser.id);
                 console.log(`${curUser.username} diconnected!`);
                 for (let i = 0; i < this.users.length; i++) {
                     if (this.users[i].id === curUser.id) {
@@ -115,5 +154,10 @@ class Server {
     }
 }
 
-const server = new Server(8081);
-server.listen();
+const app = express();
+app.use(express.static('public'));
+
+const httpServer = http.createServer(app);
+const server = new Server(httpServer);
+
+httpServer.listen(8081);

@@ -2,45 +2,46 @@
 <head>
     <title>WOWL</title>
 
-    <style>
-        body {
-            margin: 0;
-            padding: 10px;
-            font-family: Tahoma;
-        }
+    <link rel="stylesheet" type="text/css" href="styles/main.css">
 
-        body.dark {
-            background-color: #282C34;
-            color: #DADADA;
-        }
-    </style>
+    <link rel="icon" href="images/favicon.ico">
 
     <meta charset="utf-8">
 </head>
 <body class="dark">
-    <h1><img src="images/logo.jpg" width="32px"> WOWL (Wolf's Howl)</h1>
-    <h3>Фурррячий войс чат с "передовым" дизайном. Авууууу!!!</h3>
+    <h1><img src="images/logo.jpg" width="32px"> WOWL</h1>
+    <h3>WOWL (wolf's howl) - voice chat based on WebRTC.</h3>
+    <h3>Status: <span id="lobbyStatus">offline</span></h3>
+    <a href="about.html" target="_blank">Check available settings</a>
 
     <hr>
 
-    <h2>Вы - <span id="usernameSpan"></span><!-- (<span id="rtcStatus">inactive</span>)--></h2>
+    <div class="user-block">
+        <div class="info">
+            <h2>You - <a href="#" target="_blank" id="usernameLink"></a> (<span id="rtcStatusSpan">inactive</span>)</h2>
+            <img width="128" height="128" id="userAvatarImg">
+        </div>
 
-    <h3>Микрофон</h3>
+        <div class="controls">
+            <button id="muteBtn">Mute</button>
+            <button id="disconnectBtn">Disconnect</button>
+        </div>
+    </div>
+
+    <h3>Microphone</h3>
     <select id="mediaDeviceSelect">
     </select>
 
     <br><br>
 
+    <h1>Lobbies:</h2>
     <div class="lobby">
-        <h2>Волчарня (<span id="lobbyStatus">offline</span>)</h2>
+        <h2 class="lobby-name" id="wolcharnia">🐺Волчарня</h2>
         <div class="members">
             <ul id="membersList">
             </ul>
         </div>
     </div>
-
-    <button id="connectBtn">Connect</button>
-    <button id="disconnectBtn">Disconnect</button>
 
     <script src="views.js"></script>
     <script src="User.js"></script>

@@ -12,7 +12,7 @@ class AnalyserView {
     constructor(stream) {
         this.el = document.createElement('canvas');
         this.el.width = 512;
-        this.el.height = 256;
+        this.el.height = 128;
         this.ctx = this.el.getContext('2d');
 
         this.analyser = this.__createAnalyser(stream);
@@ -72,7 +72,6 @@ class UsersView {
 
         const render = () => {
             for (const user of this.users) {
-                console.log('wolf');
                 if (user.analyser) {
                     user.analyser.update();
                 }
@@ -107,7 +106,6 @@ class UsersView {
         }
     }
 }
-
 
 class MediaDeviceSelectView {
     constructor(elId, onchange, defaultDeviceId) {
