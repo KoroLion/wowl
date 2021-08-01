@@ -1,9 +1,10 @@
 const http = require('http');
+const fs = require('fs');
+
 const express = require('express');
 const WebSocket = require('ws');
-const jwt = require('jsonwebtoken');
 
-const JWT_KEY = 'ASDMkoehv89uaijnckASJDc80asjhn54ufjSNU@#35jr0fU(@nfjsd0uy02hn';
+const jwt = require('jsonwebtoken');
 
 class User {
     constructor(id, ws) {
@@ -49,7 +50,7 @@ class Server {
     __auth(curUser, token) {
         let userData = {}
         try {
-            userData = jwt.verify(token, JWT_KEY);
+            userData = jwt.verify(token, this.jwtKey);
         } catch (e) {
             console.log('WARN: User with incorrect token was kicked');
             curUser.ws.close();
@@ -85,8 +86,9 @@ class Server {
         });
     }
 
-    constructor(httpServer) {
+    constructor(httpServer, jwtKey) {
         this.curId = 1;
+        this.jwtKey = jwtKey;
 
         this.wsServer = new WebSocket.Server({ server: httpServer });
 
@@ -164,10 +166,13 @@ class Server {
     }
 }
 
+const data = fs.readFileSync('config.json');
+const config = JSON.parse(data);
+
 const app = express();
 app.use(express.static('public'));
 
 const httpServer = http.createServer(app);
-const server = new Server(httpServer);
+const server = new Server(httpServer, config.jwtKey);
 
 httpServer.listen(8081);
