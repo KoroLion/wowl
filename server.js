@@ -35,6 +35,17 @@ class User {
 }
 
 class Server {
+    __forward(curUser, to, data) {
+        const user = this.getUser(to);
+        if (!user) {
+            console.log(`User with id = ${to} was not found!`);
+            return;
+        }
+
+        data.from = curUser.id;
+        user.send(data);
+    }
+
     __auth(curUser, token) {
         let userData = {}
         try {
@@ -98,21 +109,20 @@ class Server {
 
                 if (data.command === 'auth') {
                     this.__auth(curUser, data.data);
-                } else if (!curUser.username) {
+                    return;
+                }
+                if (!curUser.username) {
                     return;
                 }
 
                 if (data.command === 'getUsers') {
                     this.__getUsers(curUser);
-                } else if (data.to) {
-                    const user = this.getUser(data.to);
-                    if (!user) {
-                        console.log(`User with id = ${data.to} was not found!`);
-                        return;
-                    }
+                    return;
+                }
 
-                    data.from = curUser.id;
-                    user.send(data);
+                if (data.to) {
+                    this.__forward(curUser, data.to, data);
+                    return;
                 }
             });
 
@@ -121,7 +131,7 @@ class Server {
                     command: 'disconnected',
                     data: curUser.id
                 }, curUser.id);
-                console.log(`${curUser.username} diconnected!`);
+                console.log(`${curUser.username} disconnected!`);
                 for (let i = 0; i < this.users.length; i++) {
                     if (this.users[i].id === curUser.id) {
                         this.users.splice(i, 1);

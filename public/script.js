@@ -35,6 +35,31 @@ class App {
         this.disconnectSound = new Audio('sounds/wuf.mp3');
     }
 
+    setOnline(online, connecting = false) {
+        this.online = online;
+
+        if (connecting) {
+            serviceStatusSpan.innerHTML = 'connecting';
+            return;
+        }
+
+        serviceStatusSpan.innerHTML = (online)? 'online': 'offline';
+    }
+
+    setActive(active) {
+        this.active = active;
+
+        if (active) {
+            disconnectBtn.style.display = null;
+            statsBtn.style.display = null;
+        } else {
+            disconnectBtn.style.display = 'none';
+            disconnectBtn.style.display = 'none';
+        }
+
+        pcStatusSpan.innerHTML = (active)? 'active': 'inactive';
+    }
+
     __getUser(id) {
         for (const user of this.users) {
             if (user.id === id) {
@@ -44,35 +69,42 @@ class App {
         return null;
     }
 
-    async __getPermissions() {
-        if (!window.localStorage.getItem('hasMediaPermission')) {
-            alert('We will ask you to give us permission to access your camera and mic. We need this to display the list of your devives. We won\'t use them until you join the voice channel.');
+    async __getDevices() {
+        try {
+            if (!window.localStorage.getItem('hasMediaPermission')) {
+                alert('We will ask you to give us permission to access your camera and mic. We need this to display the list of your devives. We won\'t use them until you join the voice channel.');
+            }
+            const stream = await navigator.mediaDevices.getUserMedia({
+                audio: true,
+                video: true
+            });
+
+            const devices = await navigator.mediaDevices.enumerateDevices();
+
+            for (const track of stream.getTracks()) {
+                track.stop();
+            }
+
+            window.localStorage.setItem('hasMediaPermission', true)
+            return devices;
+        } catch (e) {
+            window.localStorage.getItem('hasMediaPermission', false)
+            throw(e);
         }
-        return await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
     }
 
     async init() {
-        let stream = null;
-
         try {
-            stream = await this.__getPermissions();
+            const devices = await this.__getDevices();
+
+            const audioDevices = []
+            devices
+                .filter((device) => device.kind === 'audioinput')
+                .map((device) => audioDevices.push(device));
+            this.mediaDeviceSelectView.render(audioDevices);
         } catch (e) {
-            window.localStorage.getItem('hasMediaPermission', false)
             alert('We were unable to access your media devices. Refresh the page.');
-            return;
-        }
-        window.localStorage.setItem('hasMediaPermission', true)
-
-        const devices = await navigator.mediaDevices.enumerateDevices();
-
-        const audioDevices = []
-        devices
-            .filter((device) => device.kind === 'audioinput')
-            .map((device) => audioDevices.push(device));
-        this.mediaDeviceSelectView.render(audioDevices);
-
-        for (const track of stream.getTracks()) {
-            track.stop();
+            throw(e);
         }
     }
 
@@ -89,10 +121,6 @@ class App {
         }
 
         const jwt = await this.auth();
-        /*const data = JSON.parse(atob(jwt.split('.')[1]));
-        const username = data.username;
-        usernameSpan.innerHTML = username;*/
-
         this.send({
             command: 'auth',
             data: jwt
@@ -128,6 +156,7 @@ class App {
                 video: false,
             });
             console.log('Media stream created');
+            this.mute(this.muted);
             console.log(this.stream.getTracks()[0].getSettings());
         } catch (e) {
             alert('unable to access mic, try refreshing the page');
@@ -137,6 +166,7 @@ class App {
         this.send({
             command: 'getUsers'
         });
+        this.setActive(true);
     }
 
     leave() {
@@ -158,14 +188,14 @@ class App {
 
         this.users = []
         this.usersView.render(this.users);
+
+        this.setActive(false);
     }
 
     close() {
         if (this.ws) {
             this.ws.close();
         }
-
-        lobbyStatus.innerHTML = 'offline';
     }
 
     send(data) {
@@ -184,9 +214,17 @@ class App {
 
     __candidateReceived(candidate, from) {
         const user = this.__getUser(from);
+        if (!user) {
+            console.log(`ERROR: unable to find user with id = ${from}`);
+            return;
+        }
         console.log(`RTC candidate received from ${user.username}`);
 
-        user.pc.addIceCandidate(candidate);
+        try {
+            user.pc.addIceCandidate(candidate);
+        } catch (e) {
+            console.log(`Unable to add candidate from ${user.username}`);
+        }
     }
 
     async __offerReceived(offer, from) {
@@ -260,8 +298,8 @@ class App {
         this.id = to;
         this.users = [];
 
-        for (let user of users) {
-            user = new User(user.id, user.username);
+        for (let userData of users) {
+            const user = new User(userData);
             this.addUser(user);
 
             if (user.id === this.id) {
@@ -292,8 +330,7 @@ class App {
     }
 
     async __connectedReceived(user) {
-        user = new User(user.id, user.username);
-        this.addUser(user);
+        this.addUser(new User(user));
     }
 
     async __disconnectedReceived(id) {
@@ -301,7 +338,7 @@ class App {
     }
 
     __createWebsocket() {
-        lobbyStatus.innerHTML = 'connecting';
+        this.setOnline(false, true);
 
         return new Promise((resolve, reject) => {
             const wsCommands = {
@@ -319,14 +356,12 @@ class App {
             const ws = new WebSocket(addr);
 
             ws.addEventListener('open', async (ev) => {
-                this.online = true;
-                lobbyStatus.innerHTML = 'online';
+                this.setOnline(true);
                 console.log('Signaling websocket opened');
                 resolve(ws);
             });
             ws.addEventListener('close', async (ev) => {
-                this.online = false;
-                lobbyStatus.innerHTML = 'offline';
+                this.setOnline(false);
                 console.log('Signaling websocket closed');
                 reject();
             });
@@ -403,27 +438,46 @@ class App {
         this.muted = mute;
         muteBtn.innerHTML = (mute)? 'Unmute': 'Mute';
     }
+
+    async infoToConsole() {
+        if (this.active) {
+            for (const user of this.users) {
+                if (user.pc) {
+                    const stats = await user.pc.getStats();
+                    console.log(`Stats for ${user.username}:`);
+                    console.log(stats);
+                }
+            }
+        }
+    }
 }
 
 async function main() {
-    const app = new App();
-    await app.init();
-    await app.connect();
-    await app.join();
+    try {
+        const app = new App();
+        await app.init();
+        await app.connect();
+        await app.join();
 
-    window.addEventListener('beforeunload', (e) => {
-        app.close()
-    });
+        window.addEventListener('beforeunload', (e) => {
+            app.close()
+        });
 
-    muteBtn.addEventListener('click', () => {
-        app.mute(!app.muted);
-    });
-    wolcharnia.addEventListener('click', () => {
-        app.join();
-    });
-    disconnectBtn.addEventListener('click', () => {
-        app.leave();
-    });
+        muteBtn.addEventListener('click', () => {
+            app.mute(!app.muted);
+        });
+        wolcharnia.addEventListener('click', async () => {
+            await app.join();
+        });
+        disconnectBtn.addEventListener('click', () => {
+            app.leave();
+        });
+        statsBtn.addEventListener('click', async () => {
+            await app.infoToConsole();
+        });
+    } catch (e) {
+        console.log(e);
+    }
 }
 
 window.addEventListener('load', main);

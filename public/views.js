@@ -92,7 +92,12 @@ class UsersView {
         for (const user of users) {
             const li = document.createElement('li');
             const span = document.createElement('span');
-            span.innerHTML = `<strong>${user.username}</strong>`;
+            span.innerHTML = `
+                <a href="${user.profileUrl}" target="_blank">
+                    <img src="${user.avatarUrl}" width="32" height="32">
+                    <strong>${user.username}${user.utfIcon}</strong>
+                </a>
+            `;
             li.appendChild(span);
             if (user.audioEl) {
                 li.appendChild(document.createElement('br'));

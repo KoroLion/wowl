@@ -1,7 +1,10 @@
 class User {
-    constructor(id, username) {
-        this.id = id;
-        this.username = username;
+    constructor(userData = {}) {
+        this.id = userData.id;
+        this.username = userData.username;
+        this.utfIcon = userData.utfIcon;
+        this.profileUrl = userData.profileUrl;
+        this.avatarUrl = userData.avatarUrl;
 
         this.analyser = null;
         this.audioEl = null;
