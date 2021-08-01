@@ -76,7 +76,7 @@ class App {
             }
             const stream = await navigator.mediaDevices.getUserMedia({
                 audio: true,
-                video: true
+                video: false
             });
 
             const devices = await navigator.mediaDevices.enumerateDevices();
