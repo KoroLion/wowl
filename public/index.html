@@ -1,0 +1,49 @@
+<html>
+<head>
+    <title>WOWL</title>
+
+    <style>
+        body {
+            margin: 0;
+            padding: 10px;
+            font-family: Tahoma;
+        }
+
+        body.dark {
+            background-color: #282C34;
+            color: #DADADA;
+        }
+    </style>
+
+    <meta charset="utf-8">
+</head>
+<body class="dark">
+    <h1><img src="images/logo.jpg" width="32px"> WOWL (Wolf's Howl)</h1>
+    <h3>Фурррячий войс чат с "передовым" дизайном. Авууууу!!!</h3>
+
+    <hr>
+
+    <h2>Вы - <span id="usernameSpan"></span><!-- (<span id="rtcStatus">inactive</span>)--></h2>
+
+    <h3>Микрофон</h3>
+    <select id="mediaDeviceSelect">
+    </select>
+
+    <br><br>
+
+    <div class="lobby">
+        <h2>Волчарня (<span id="lobbyStatus">offline</span>)</h2>
+        <div class="members">
+            <ul id="membersList">
+            </ul>
+        </div>
+    </div>
+
+    <button id="connectBtn">Connect</button>
+    <button id="disconnectBtn">Disconnect</button>
+
+    <script src="views.js"></script>
+    <script src="User.js"></script>
+    <script src="script.js"></script>
+</body>
+</html>
