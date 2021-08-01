@@ -1,4 +1,4 @@
-const AUTH_URL = 'http://localhost:8000';
+const AUTH_URL = 'https://liokor.com';
 const ICE_SERVERS = [
     {
         urls: 'stun:stun.wowl.liokor.com:3478',
