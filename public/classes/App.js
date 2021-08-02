@@ -454,14 +454,31 @@ class App {
             for (const user of this.users) {
                 if (user.pc) {
                     console.log(`RTC report for ${user.username}:`);
+
+                    let localCandidateId = null, remoteCandidateId = null;
                     const stats = await user.pc.getStats(null);
+                    // we need to use .forEach to get entries
                     stats.forEach((report) => {
-                        if (report.type === 'candidate-pair' && report.nominated) {
+                        if (report.type === 'candidate-pair' && report.nominated && report.selected) {
                             console.log(report);
-                        } else if (['inbound-rtp', 'outbound-rtp', 'remote-inbound-rtp', 'remote-outbound-rtp'].includes(report.type)) {
-                            console.log(report);
+                            localCandidateId = report.localCandidateId;
+                            remoteCandidateId = report.remoteCandidateId;
                         }
                     });
+
+                    if (localCandidateId && remoteCandidateId) {
+                        stats.forEach((report) => {
+                            if (report.type === 'local-candidate' && report.id === localCandidateId) {
+                                console.log(report);
+                            } else if (report.type === 'remote-candidate' && report.id == remoteCandidateId) {
+                                console.log(report);
+                            }/* else if (['inbound-rtp', 'outbound-rtp', 'remote-inbound-rtp', 'remote-outbound-rtp'].includes(report.type)) {
+                                console.log(report);
+                            }*/ // uncomment for connection info
+                        });
+                    } else {
+                        console.log('RTC connection not established yet!');
+                    }
                 }
             }
         }
