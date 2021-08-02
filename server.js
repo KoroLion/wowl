@@ -50,7 +50,7 @@ class Server {
     __auth(curUser, token) {
         let userData = {}
         try {
-            userData = jwt.verify(token, this.jwtKey);
+            userData = jwt.verify(token, this.config.jwtKey);
         } catch (e) {
             console.log('WARN: User with incorrect token was kicked');
             curUser.ws.close();
@@ -86,9 +86,9 @@ class Server {
         });
     }
 
-    constructor(httpServer, jwtKey) {
+    constructor(httpServer, config) {
         this.curId = 1;
-        this.jwtKey = jwtKey;
+        this.config = config;
 
         this.wsServer = new WebSocket.Server({ server: httpServer });
 
@@ -101,6 +101,13 @@ class Server {
 
         this.wsServer.on('connection', (ws) => {
             const curUser = new User(this.curId++, ws);
+            curUser.send({
+                command: 'serverInfo',
+                data: {
+                    authUrl: this.config.authUrl,
+                    iceServers: this.config.iceServers,
+                }
+            });
 
             ws.on('message', (message) => {
                 const data = JSON.parse(message);
@@ -173,6 +180,6 @@ const app = express();
 app.use(express.static('public'));
 
 const httpServer = http.createServer(app);
-const server = new Server(httpServer, config.jwtKey);
+const server = new Server(httpServer, config);
 
 httpServer.listen(8081);

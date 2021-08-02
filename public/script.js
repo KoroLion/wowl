@@ -1,28 +1,16 @@
-const AUTH_URL = 'https://liokor.com';
-const ICE_SERVERS = [
-    {
-        urls: 'stun:stun.wowl.liokor.com:3478',
-        username: 'wowl',
-        credential: 'qwerty123'
-    },
-    {
-        urls: 'turn:turn.wowl.liokor.com:3478',
-        username: 'wowl',
-        credential: 'qwerty123'
-    }
-];
-
 class App {
     constructor() {
         this.stream = null;
         this.ws = null;
 
         this.id = null;
-        this.username = null;
         this.muted = false;
 
         this.online = false;
         this.active = false;
+
+        this.authUrl = null;
+        this.iceServers = null;
 
         this.users = [];
 
@@ -128,7 +116,7 @@ class App {
     }
 
     async auth() {
-        const res = await fetch(`${AUTH_URL}/profile/api/jwt_token/`, {
+        const res = await fetch(`${this.authUrl}/profile/api/jwt_token/`, {
             method: 'post',
             mode: 'cors',
             credentials: 'include',
@@ -137,12 +125,12 @@ class App {
             return await res.text();
         } else {
             console.log('User is not authenticated! Redirecting...');
-            document.location.replace(`${AUTH_URL}/?next=${window.location.origin}`);
+            document.location.replace(`${this.authUrl}/?next=${window.location.origin}`);
         }
     }
 
     async join() {
-        if (this.active) {
+        if (!this.online || this.active) {
             return;
         }
 
@@ -342,6 +330,11 @@ class App {
 
         return new Promise((resolve, reject) => {
             const wsCommands = {
+                'serverInfo': (info) => {
+                    this.authUrl = info.authUrl;
+                    this.iceServers = info.iceServers;
+                    resolve(ws);
+                },
                 'selfInfo': this.__selfInfoReceived.bind(this),
                 'candidate': this.__candidateReceived.bind(this),
                 'offer': this.__offerReceived.bind(this),
@@ -357,8 +350,7 @@ class App {
 
             ws.addEventListener('open', async (ev) => {
                 this.setOnline(true);
-                console.log('Signaling websocket opened');
-                resolve(ws);
+                console.log('Signaling websocket opened! Waiting for server info...');
             });
             ws.addEventListener('close', async (ev) => {
                 this.setOnline(false);
@@ -392,7 +384,7 @@ class App {
         const user = this.__getUser(id);
 
         const pc = new RTCPeerConnection({
-            iceServers: ICE_SERVERS
+            iceServers: this.iceServers,
         });
 
         for (const track of stream.getTracks()) {
