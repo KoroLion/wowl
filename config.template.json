@@ -1,3 +1,16 @@
 {
-    "jwtKey": "keep_it_in_secret"
+    "authUrl": "http://auth.ru",
+    "jwtKey": "keep_it_in_secret",
+    "iceServers": [
+        {
+            "urls": "stun:stun.com",
+            "username": "username",
+            "credential": "password"
+        },
+        {
+            "urls": "turn:turn.com",
+            "username": "username",
+            "credential": "password"
+        }
+    ]
 }
