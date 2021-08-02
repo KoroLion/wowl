@@ -1,5 +1,6 @@
 const http = require('http');
 const fs = require('fs');
+const { performance } = require('perf_hooks');
 
 const express = require('express');
 const WebSocket = require('ws');
@@ -10,6 +11,7 @@ class User {
     constructor(id, ws) {
         this.id = id;
         this.ws = ws;
+        this.connectedTime = performance.now();
 
         this.username = null;
         this.profileUrl = null;
@@ -177,7 +179,11 @@ const data = fs.readFileSync('config.json');
 const config = JSON.parse(data);
 
 const app = express();
-app.use(express.static('public'));
+
+if (config.debug) {
+    console.log('DEBUG: Serving static files from ./public');
+    app.use(express.static('public'));
+}
 
 const httpServer = http.createServer(app);
 const server = new Server(httpServer, config);

@@ -1,4 +1,5 @@
 {
+    "debug": true,
     "authUrl": "http://auth.ru",
     "jwtKey": "keep_it_in_secret",
     "iceServers": [

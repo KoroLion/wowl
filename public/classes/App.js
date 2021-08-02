@@ -1,3 +1,8 @@
+import User from './User.js';
+
+import { MediaDeviceSelectView } from '../views/MediaDeviceSelectView.js';
+import { AnalyserView, UsersView } from '../views/views.js';
+
 class App {
     constructor() {
         this.stream = null;
@@ -116,21 +121,32 @@ class App {
     }
 
     async auth() {
-        const res = await fetch(`${this.authUrl}/profile/api/jwt_token/`, {
-            method: 'post',
-            mode: 'cors',
-            credentials: 'include',
-        });
-        if (res.ok) {
-            return await res.text();
-        } else {
-            console.log('User is not authenticated! Redirecting...');
-            document.location.replace(`${this.authUrl}/?next=${window.location.origin}`);
+        try {
+            const controller = new AbortController();
+            const timeout = setTimeout(() => controller.abort(), 2500);
+            const res = await fetch(`${this.authUrl}/profile/api/jwt_token/`, {
+                method: 'post',
+                mode: 'cors',
+                credentials: 'include',
+                signal: controller.signal,
+            });
+            clearTimeout(timeout);
+
+            if (res.ok) {
+                return await res.text();
+            } else {
+                console.log('User is not authenticated! Redirecting...');
+                document.location.replace(`${this.authUrl}/?next=${window.location.origin}`);
+            }
+        } catch (e) {
+            console.log('ERROR: Unable to access auth server!');
+            return '';
         }
     }
 
     async join() {
         if (!this.online || this.active) {
+            console.log('Unable to join!');
             return;
         }
 
@@ -206,7 +222,7 @@ class App {
             console.log(`ERROR: unable to find user with id = ${from}`);
             return;
         }
-        console.log(`RTC candidate received from ${user.username}`);
+        console.log(`RTC candidate received from ${user.username}: ${candidate.candidate}`);
 
         try {
             user.pc.addIceCandidate(candidate);
@@ -354,6 +370,8 @@ class App {
             });
             ws.addEventListener('close', async (ev) => {
                 this.setOnline(false);
+                this.leave();
+                this.setActive(false);
                 console.log('Signaling websocket closed');
                 reject();
             });
@@ -435,41 +453,19 @@ class App {
         if (this.active) {
             for (const user of this.users) {
                 if (user.pc) {
-                    const stats = await user.pc.getStats();
-                    console.log(`Stats for ${user.username}:`);
-                    console.log(stats);
+                    console.log(`RTC report for ${user.username}:`);
+                    const stats = await user.pc.getStats(null);
+                    stats.forEach((report) => {
+                        if (report.type === 'candidate-pair' && report.nominated) {
+                            console.log(report);
+                        } else if (['inbound-rtp', 'outbound-rtp', 'remote-inbound-rtp', 'remote-outbound-rtp'].includes(report.type)) {
+                            console.log(report);
+                        }
+                    });
                 }
             }
         }
     }
 }
 
-async function main() {
-    try {
-        const app = new App();
-        await app.init();
-        await app.connect();
-        await app.join();
-
-        window.addEventListener('beforeunload', (e) => {
-            app.close()
-        });
-
-        muteBtn.addEventListener('click', () => {
-            app.mute(!app.muted);
-        });
-        wolcharnia.addEventListener('click', async () => {
-            await app.join();
-        });
-        disconnectBtn.addEventListener('click', () => {
-            app.leave();
-        });
-        statsBtn.addEventListener('click', async () => {
-            await app.infoToConsole();
-        });
-    } catch (e) {
-        console.log(e);
-    }
-}
-
-window.addEventListener('load', main);
+export default App;
