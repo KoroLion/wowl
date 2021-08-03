@@ -5,6 +5,7 @@ import { AnalyserView, UsersView } from '../views/views.js';
 
 class App {
     constructor() {
+        this.debug = false;
         this.stream = null;
         this.ws = null;
 
@@ -113,7 +114,10 @@ class App {
             return;
         }
 
-        const jwt = await this.auth();
+        let jwt = '';
+        if (!this.debug) {
+            jwt = await this.auth();
+        }
         this.send({
             command: 'auth',
             data: jwt
@@ -239,7 +243,7 @@ class App {
         }
         console.log(`RTC offer received from ${user.username}`);
 
-        user.pc = await this.__createPeerConnection(user.id, this.stream);
+        user.pc = await this.__createPeerConnection(user, this.stream);
         await user.pc.setRemoteDescription(offer);
         const answer = await user.pc.createAnswer();
         await user.pc.setLocalDescription(answer);
@@ -312,7 +316,7 @@ class App {
                 user.analyser = await this.__createAnalyser(this.stream);
                 this.usersView.render(this.users);
             } else {
-                user.pc = this.__createPeerConnection(user.id, this.stream);
+                user.pc = this.__createPeerConnection(user, this.stream);
                 const offer = await user.pc.createOffer({
                     offerToReceiveAudio: 1
                 });
@@ -341,15 +345,23 @@ class App {
         this.deleteUser(id);
     }
 
+    async __serverInfoReceived(info, resolve, ws) {
+        this.debug = info.debug;
+        this.authUrl = info.authUrl;
+        this.iceServers = info.iceServers;
+        if (this.debug) {
+            console.log('WARNING!!! Running in DEBUG mode!');
+        }
+        resolve(ws);
+    }
+
     __createWebsocket() {
         this.setOnline(false, true);
 
         return new Promise((resolve, reject) => {
             const wsCommands = {
                 'serverInfo': (info) => {
-                    this.authUrl = info.authUrl;
-                    this.iceServers = info.iceServers;
-                    resolve(ws);
+                    this.__serverInfoReceived(info, resolve, ws);
                 },
                 'selfInfo': this.__selfInfoReceived.bind(this),
                 'candidate': this.__candidateReceived.bind(this),
@@ -388,6 +400,7 @@ class App {
     }
 
     __createAudioEl(stream, play = true) {
+        // todo: this should be in views
         const audio = document.createElement('audio');
         audio.controls = 'controls';
         audio.srcObject = stream;
@@ -398,9 +411,7 @@ class App {
         return audio;
     }
 
-    __createPeerConnection(id, stream) {
-        const user = this.__getUser(id);
-
+    __createPeerConnection(user, stream) {
         const pc = new RTCPeerConnection({
             iceServers: this.iceServers,
         });
@@ -415,17 +426,18 @@ class App {
             }
 
             this.send({
-                to: id,
+                to: user.id,
                 command: 'candidate',
                 data: ev.candidate
             });
         });
 
-        pc.addEventListener('connectionstatechange', () => {
-            console.log(`RTC status changed for ${id}: ${pc.connectionState}`);
+        pc.addEventListener('iceconnectionstatechange', () => {
+            console.log(`RTC status changed for ${user.username}: ${pc.iceConnectionState}`);
         });
 
         pc.addEventListener('track', async (ev) => {
+            // todo: refactor this to only add stream to user
             user.audioEl = this.__createAudioEl(ev.streams[0]);
             user.analyser = await this.__createAnalyser(ev.streams[0]);
 

@@ -7,6 +7,8 @@ const WebSocket = require('ws');
 
 const jwt = require('jsonwebtoken');
 
+const DEBUG_USERNAMES = ['Kiba', 'Toboe', 'Hige', 'Tsume'];
+
 class User {
     constructor(id, ws) {
         this.id = id;
@@ -50,13 +52,19 @@ class Server {
     }
 
     __auth(curUser, token) {
-        let userData = {}
-        try {
-            userData = jwt.verify(token, this.config.jwtKey);
-        } catch (e) {
-            console.log('WARN: User with incorrect token was kicked');
-            curUser.ws.close();
-            return;
+        let userData = {
+            username: DEBUG_USERNAMES[Math.round(Math.random() * DEBUG_USERNAMES.length)],
+            profileUrl: 'http://localhost',
+            avatarUrl: 'https://ddragon.leagueoflegends.com/cdn/11.15.1/img/profileicon/5028.png'
+        }
+        if (!this.config.debug) {
+            try {
+                userData = jwt.verify(token, this.config.jwtKey);
+            } catch (e) {
+                console.log('WARN: User with incorrect token was kicked');
+                curUser.ws.close();
+                return;
+            }
         }
 
         curUser.username = userData.username;
@@ -106,6 +114,7 @@ class Server {
             curUser.send({
                 command: 'serverInfo',
                 data: {
+                    debug: this.config.debug,
                     authUrl: this.config.authUrl,
                     iceServers: this.config.iceServers,
                 }
