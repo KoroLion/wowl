@@ -9,6 +9,12 @@ body.dark {
     color: #DADADA;
 }
 
+img {
+    /* to fix chrome's images blurring */
+    image-rendering: -webkit-optimize-contrast;
+    transform: translateZ(0);
+}
+
 .lobby-name {
     transition: 0.2s ease color;
     cursor: pointer;
