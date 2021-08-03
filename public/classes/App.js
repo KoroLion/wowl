@@ -1,7 +1,7 @@
 import User from './User.js';
 
 import { MediaDeviceSelectView } from '../views/MediaDeviceSelectView.js';
-import { AnalyserView, UsersView } from '../views/views.js';
+import { UsersView } from '../views/views.js';
 
 class App {
     constructor() {
@@ -38,7 +38,7 @@ class App {
             return;
         }
 
-        serviceStatusSpan.innerHTML = (online)? 'online': 'offline';
+        serviceStatusSpan.innerHTML = (online) ? 'online' : 'offline';
     }
 
     setActive(active) {
@@ -52,7 +52,7 @@ class App {
             statsBtn.style.display = 'none';
         }
 
-        pcStatusSpan.innerHTML = (active)? 'active': 'inactive';
+        pcStatusSpan.innerHTML = (active) ? 'active' : 'inactive';
     }
 
     __getUser(id) {
@@ -80,11 +80,11 @@ class App {
                 track.stop();
             }
 
-            window.localStorage.setItem('hasMediaPermission', true)
+            window.localStorage.setItem('hasMediaPermission', true);
             return devices;
         } catch (e) {
-            window.localStorage.getItem('hasMediaPermission', false)
-            throw(e);
+            window.localStorage.getItem('hasMediaPermission', false);
+            throw (e);
         }
     }
 
@@ -92,14 +92,14 @@ class App {
         try {
             const devices = await this.__getDevices();
 
-            const audioDevices = []
+            const audioDevices = [];
             devices
                 .filter((device) => device.kind === 'audioinput')
                 .map((device) => audioDevices.push(device));
             this.mediaDeviceSelectView.render(audioDevices);
         } catch (e) {
             alert('We were unable to access your media devices. Refresh the page.');
-            throw(e);
+            throw (e);
         }
     }
 
@@ -133,7 +133,7 @@ class App {
                 method: 'post',
                 mode: 'cors',
                 credentials: 'include',
-                signal: controller.signal,
+                signal: controller.signal
             });
             clearTimeout(timeout);
 
@@ -162,7 +162,7 @@ class App {
                     echoCancellation: true,
                     noiseSuppression: true
                 },
-                video: false,
+                video: false
             });
             console.log('Media stream created');
             this.mute(this.muted);
@@ -189,7 +189,7 @@ class App {
             user.close();
         }
 
-        this.users = []
+        this.users = [];
         this.usersView.render(this.users);
 
         this.setActive(false);
@@ -209,7 +209,7 @@ class App {
 
     __getWsAddr() {
         if (window.location.hostname === 'localhost') {
-            return `ws://localhost:8081`;
+            return 'ws://localhost:8081';
         } else {
             return `wss://${window.location.hostname}/ws/`;
         }
@@ -292,7 +292,7 @@ class App {
         this.id = to;
         this.users = [];
 
-        for (let userData of users) {
+        for (const userData of users) {
             const user = new User(userData);
             this.addUser(user);
 
@@ -345,17 +345,17 @@ class App {
 
         return new Promise((resolve, reject) => {
             const wsCommands = {
-                'serverInfo': (info) => {
+                serverInfo: (info) => {
                     this.__serverInfoReceived(info, resolve, ws);
                 },
-                'selfInfo': this.__selfInfoReceived.bind(this),
-                'candidate': this.__candidateReceived.bind(this),
-                'offer': this.__offerReceived.bind(this),
-                'answer': this.__answerReceived.bind(this),
-                'users': this.__usersReceived.bind(this),
-                'connected': this.__connectedReceived.bind(this),
-                'disconnected': this.__disconnectedReceived.bind(this)
-            }
+                selfInfo: this.__selfInfoReceived.bind(this),
+                candidate: this.__candidateReceived.bind(this),
+                offer: this.__offerReceived.bind(this),
+                answer: this.__answerReceived.bind(this),
+                users: this.__usersReceived.bind(this),
+                connected: this.__connectedReceived.bind(this),
+                disconnected: this.__disconnectedReceived.bind(this)
+            };
 
             const addr = this.__getWsAddr();
             console.log(`WS connecting to ${addr}`);
@@ -370,7 +370,7 @@ class App {
                 this.leave();
                 this.setActive(false);
                 console.log('Signaling websocket closed');
-                reject();
+                reject(new Error('Unable to open websocket'));
             });
 
             ws.addEventListener('message', async (ev) => {
@@ -386,7 +386,7 @@ class App {
 
     __createPeerConnection(user, stream) {
         const pc = new RTCPeerConnection({
-            iceServers: this.iceServers,
+            iceServers: this.iceServers
         });
 
         for (const track of stream.getTracks()) {
@@ -428,7 +428,7 @@ class App {
         }
 
         this.muted = mute;
-        muteBtn.innerHTML = (mute)? 'Unmute': 'Mute';
+        muteBtn.innerHTML = (mute) ? 'Unmute' : 'Mute';
     }
 
     async infoToConsole() {
@@ -437,7 +437,7 @@ class App {
                 if (user.pc) {
                     console.log(`RTC report for ${user.username}:`);
 
-                    let localCandidateId = null, remoteCandidateId = null;
+                    let localCandidateId = null; let remoteCandidateId = null;
                     const stats = await user.pc.getStats(null);
                     // we need to use .forEach to get entries
                     stats.forEach((report) => {
@@ -452,11 +452,11 @@ class App {
                         stats.forEach((report) => {
                             if (report.type === 'local-candidate' && report.id === localCandidateId) {
                                 console.log(report);
-                            } else if (report.type === 'remote-candidate' && report.id == remoteCandidateId) {
+                            } else if (report.type === 'remote-candidate' && report.id === remoteCandidateId) {
                                 console.log(report);
                             }/* else if (['inbound-rtp', 'outbound-rtp', 'remote-inbound-rtp', 'remote-outbound-rtp'].includes(report.type)) {
                                 console.log(report);
-                            }*/ // uncomment for connection info
+                            } */ // uncomment for connection info
                         });
                     } else {
                         console.log('RTC connection not established yet!');

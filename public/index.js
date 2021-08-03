@@ -11,7 +11,7 @@ async function main() {
         }
 
         window.addEventListener('beforeunload', (e) => {
-            app.close()
+            app.close();
         });
 
         muteBtn.addEventListener('click', () => {
