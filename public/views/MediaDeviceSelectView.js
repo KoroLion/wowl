@@ -1,4 +1,4 @@
-export class MediaDeviceSelectView {
+export default class MediaDeviceSelectView {
     constructor(elId, onchange, defaultDeviceId) {
         this.el = document.getElementById(elId);
         this.onchange = onchange;

@@ -1,0 +1,81 @@
+*
+    box-sizing border-box
+
+body
+    margin 0
+    font-family Arial
+
+    div.content
+        h1
+            margin 10px 0
+        margin 0 15px
+
+body.dark
+    background-color #282C34
+    color #DADADA
+
+img
+    // to fix chrome's images blurring
+    image-rendering -webkit-optimize-contrast
+    transform translateZ(0)
+
+.lobby-name
+    transition 0.2s ease color
+    cursor pointer;
+.lobby-name:hover
+    color orange
+
+a
+    color inherit
+    transition 0.2s ease all
+
+a:hover
+    color orange
+
+div.lobby
+    div.members
+        margin-left 32px
+        div.member
+            margin-bottom 16px
+            border-radius 8px
+            overflow hidden
+            div.user-bar
+                display flex
+                padding 4px
+                height 32px
+                background-color #1D1E1F
+                line-height 32px
+                div.username
+                    a
+                        font-size 18px
+                        text-decoration none
+                        font-weight bold
+                        display flex
+                        div.username
+                            margin-left 10px
+                        img
+                            width 32px
+                            height 32px
+                            border-radius 32px
+                div.controls
+                    display flex
+                    justify-content right
+                    margin-left auto
+                    flex-grow 1
+                    div
+                        margin-left 4px
+                        input
+                            height 24px
+                        svg
+                            margin-top calc((32px - 24px) / 2)
+                            width 24px
+                            height 24px
+                            cursor pointer
+                        svg:hover
+                            color orange
+
+footer
+    text-align center
+    color #CACACA
+    background-color #151818
+    padding 8px

@@ -1,7 +1,7 @@
 import User from './User.js';
 
-import { MediaDeviceSelectView } from '../views/MediaDeviceSelectView.js';
-import { UsersView } from '../views/views.js';
+import MediaDeviceSelectView from '../views/MediaDeviceSelectView.js';
+import UsersView from '../views/UsersView.js';
 
 class App {
     constructor() {

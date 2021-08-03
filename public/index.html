@@ -9,42 +9,47 @@
     <meta charset="utf-8">
 </head>
 <body class="dark">
-    <h1><img src="images/logo.jpg" width="32px"> WOWL</h1>
-    <h3>WOWL (wolf's howl) - voice chat based on WebRTC.</h3>
-    <h3>Status: <span id="serviceStatusSpan">offline</span></h3>
+    <div class="content">
+        <h1><img src="images/logo.jpg" width="32px"> WOWL</h1>
+        <h3>WOWL (wolf + howl) - simple (yet) voice chat based on WebRTC.</h3>
+        <h3>Status: <span id="serviceStatusSpan">offline</span></h3>
 
-    <a href="about.html" target="_blank">Check available settings</a>
+        <a href="about.html" target="_blank">Check available settings</a>
 
-    <hr>
+        <hr>
 
-    <div class="user-block">
-        <div class="info">
-            <h2>You - <a href="#" target="_blank" id="usernameLink"></a> (<span id="pcStatusSpan">inactive</span>)</h2>
-            <img width="128" height="128" id="userAvatarImg">
+        <div class="user-block">
+            <h2>Profile</h2>
+            <div class="info">
+                <h3><a href="#" target="_blank" id="usernameLink"></a> (<span id="pcStatusSpan">inactive</span>)</h3>
+                <img width="128" height="128" id="userAvatarImg">
+            </div>
+
+            <div class="controls">
+                <button id="muteBtn">Mute</button>
+                <button id="disconnectBtn" style='display: none;'>Disconnect</button>
+                <br>
+                <button id="statsBtn" style='display: none;'>Print peer connection stats to console</button>
+            </div>
         </div>
 
-        <div class="controls">
-            <button id="muteBtn">Mute</button>
-            <button id="disconnectBtn" style='display: none;'>Disconnect</button>
-            <br>
-            <button id="statsBtn" style='display: none;'>Print peer connection stats to console</button>
+        <h3>Microphone</h3>
+        <select id="mediaDeviceSelect">
+        </select>
+
+        <br><br>
+
+        <h2>Lobbies:</h2>
+        <div class="lobby">
+            <h3 class="lobby-name" id="wolcharnia">🐺Волчарня</h3>
+            <div class="members" id="membersList">
+            </div>
         </div>
     </div>
 
-    <h3>Microphone</h3>
-    <select id="mediaDeviceSelect">
-    </select>
-
-    <br><br>
-
-    <h1>Lobbies:</h2>
-    <div class="lobby">
-        <h2 class="lobby-name" id="wolcharnia">🐺Волчарня</h2>
-        <div class="members">
-            <ul id="membersList">
-            </ul>
-        </div>
-    </div>
+    <footer>
+        © Created by <a href="https://liokor.com/@KoroLion" target="_blank">KoroLion</a>, 2021
+    </footer>
 
     <script type="module" src="index.js"></script>
 </body>
