@@ -6,11 +6,15 @@ export default class User {
         this.profileUrl = userData.profileUrl;
         this.avatarUrl = userData.avatarUrl;
 
-        this.analyser = null;
         this.audioEl = null;
-        this.oscEl = null;
 
         this.pc = null;
         this.stream = null;
+    }
+
+    close() {
+        if (this.pc) {
+            this.pc.close();
+        }
     }
 }

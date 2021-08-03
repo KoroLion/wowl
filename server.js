@@ -9,6 +9,10 @@ const jwt = require('jsonwebtoken');
 
 const DEBUG_USERNAMES = ['Kiba', 'Toboe', 'Hige', 'Tsume'];
 
+function getRandomArrEl(arr) {
+    return arr[Math.round(Math.random() * (arr.length - 1))]
+}
+
 class User {
     constructor(id, ws) {
         this.id = id;
@@ -53,7 +57,7 @@ class Server {
 
     __auth(curUser, token) {
         let userData = {
-            username: DEBUG_USERNAMES[Math.round(Math.random() * DEBUG_USERNAMES.length)],
+            username: getRandomArrEl(DEBUG_USERNAMES),
             profileUrl: 'http://localhost',
             avatarUrl: 'https://ddragon.leagueoflegends.com/cdn/11.15.1/img/profileicon/5028.png'
         }

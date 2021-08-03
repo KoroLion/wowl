@@ -1,41 +1,42 @@
 export class AnalyserView {
-    __createAnalyser(stream) {
-        const audioCtx = new AudioContext();
-        const source = audioCtx.createMediaStreamSource(stream);
-        const analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 4096;
-        source.connect(analyser);
-
-        return analyser;
-    }
-
-    constructor(stream) {
+    constructor(stream, size = { width: 512, height: 128 }) {
         this.el = document.createElement('canvas');
-        this.el.width = 512;
-        this.el.height = 128;
+        this.el.width = size.width;
+        this.el.height = size.height;
         this.ctx = this.el.getContext('2d');
 
         this.analyser = this.__createAnalyser(stream);
     }
 
-    update() {
+    __createAnalyser(stream) {
+        const audioCtx = new AudioContext();
+        const source = audioCtx.createMediaStreamSource(stream);
+        const analyser = audioCtx.createAnalyser();
+        analyser.fftSize = Math.pow(2, 11);
+        source.connect(analyser);
+
+        return analyser;
+    }
+
+    render() {
         const { width, height } = this.el;
 
         const bufferLength = this.analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
         this.analyser.getByteTimeDomainData(dataArray);
 
-        this.ctx.fillStyle = '#202020';
-        this.ctx.fillRect(0, 0, width, height);
+        const ctx = this.ctx;
+        ctx.fillStyle = '#202020';
+        ctx.fillRect(0, 0, width, height);
 
-        this.ctx.strokeStyle = 'black';
-        this.ctx.beginPath();
-        this.ctx.moveTo(0, Math.round(height / 2));
-        this.ctx.lineTo(width, Math.round(height / 2));
-        this.ctx.stroke();
+        ctx.strokeStyle = 'black';
+        ctx.beginPath();
+        ctx.moveTo(0, Math.round(height / 2));
+        ctx.lineTo(width, Math.round(height / 2));
+        ctx.stroke();
 
-        this.ctx.strokeStyle = '#FAFAFA';
-        this.ctx.beginPath();
+        ctx.strokeStyle = '#FAFAFA';
+        ctx.beginPath();
         const sliceWidth = width * 1.0 / bufferLength;
         let x = 0;
 
@@ -44,20 +45,16 @@ export class AnalyserView {
             let y = v * height  / 2;
 
             if (i === 0) {
-                this.ctx.moveTo(x, y);
+                ctx.moveTo(x, y);
             } else {
-                this.ctx.lineTo(x, y);
+                ctx.lineTo(x, y);
             }
 
             x += sliceWidth;
         }
 
-        this.ctx.lineTo(width, height / 2);
-        this.ctx.stroke();
-    }
-
-    render(el) {
-        el.appendChild(this.el);
+        ctx.lineTo(width, height / 2);
+        ctx.stroke();
     }
 
     remove() {
@@ -70,11 +67,14 @@ export class UsersView {
         this.el = document.getElementById(elId);
         this.users = [];
 
+        this.analysers = [];
+        this.audios = [];
+
+        this.width = 512;
+
         const render = () => {
-            for (const user of this.users) {
-                if (user.analyser) {
-                    user.analyser.update();
-                }
+            for (const analyser of this.analysers) {
+                analyser.render();
             }
 
             requestAnimationFrame(render);
@@ -82,30 +82,58 @@ export class UsersView {
         render();
     }
 
-    render(users = null) {
-        this.el.innerHTML = '';
+    clear() {
+        this.users = [];
 
+        for (const audio of this.audios) {
+            audio.remove();
+        }
+        this.audios = [];
+
+        for (const analyser of this.analysers) {
+            analyser.remove();
+        }
+        this.analysers = [];
+
+        this.el.innerHTML = '';
+    }
+
+    render(users = null) {
+        this.clear();
         if (!users) {
             return;
         }
+
         this.users = users;
         for (const user of users) {
             const li = document.createElement('li');
-            const span = document.createElement('span');
-            span.innerHTML = `
+            li.innerHTML = `
                 <a href="${user.profileUrl}" target="_blank">
                     <img src="${user.avatarUrl}" width="32" height="32">
                     <strong>${user.username}${user.utfIcon}</strong>
                 </a>
             `;
-            li.appendChild(span);
-            if (user.audioEl) {
+            if (user.stream) {
                 li.appendChild(document.createElement('br'));
-                li.appendChild(user.audioEl);
-            }
-            if (user.analyser) {
+
+                const audioEl = document.createElement('audio');
+                audioEl.controls = 'controls';
+                audioEl.srcObject = user.stream;
+                audioEl.style.width = `${this.width}px`;
+                if (!user.self) {
+                    audioEl.play();
+                }
+                this.audios.push(audioEl);
+                li.appendChild(audioEl);
+
                 li.appendChild(document.createElement('br'));
-                user.analyser.render(li);
+
+                const analyserView = new AnalyserView(user.stream, {
+                    width: this.width,
+                    height: 128
+                });
+                this.analysers.push(analyserView);
+                li.appendChild(analyserView.el);
             }
             this.el.appendChild(li);
         }

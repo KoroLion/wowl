@@ -5,7 +5,10 @@ async function main() {
         const app = new App();
         await app.init();
         await app.connect();
-        await app.join();
+
+        if (app.debug) {
+            await app.join();
+        }
 
         window.addEventListener('beforeunload', (e) => {
             app.close()

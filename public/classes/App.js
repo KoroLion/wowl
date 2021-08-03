@@ -5,16 +5,17 @@ import { AnalyserView, UsersView } from '../views/views.js';
 
 class App {
     constructor() {
-        this.debug = false;
         this.stream = null;
         this.ws = null;
 
         this.id = null;
         this.muted = false;
+        this.self = false;
 
         this.online = false;
         this.active = false;
 
+        this.debug = false;
         this.authUrl = null;
         this.iceServers = null;
 
@@ -48,7 +49,7 @@ class App {
             statsBtn.style.display = null;
         } else {
             disconnectBtn.style.display = 'none';
-            disconnectBtn.style.display = 'none';
+            statsBtn.style.display = 'none';
         }
 
         pcStatusSpan.innerHTML = (active)? 'active': 'inactive';
@@ -185,13 +186,7 @@ class App {
         }
 
         for (const user of this.users) {
-            if (user.pc) {
-                user.pc.close();
-            }
-
-            if (user.audioEl) {
-                user.audioEl.remove();
-            }
+            user.close();
         }
 
         this.users = []
@@ -285,21 +280,12 @@ class App {
             if (user.id === id) {
                 console.log(`${user.username} disconnected`);
                 this.disconnectSound.play();
-                if (user.pc) {
-                    user.pc.close();
-                }
-                if (user.audioEl) {
-                    user.audioEl.remove();
-                }
+                user.close();
                 this.users.splice(i, 1);
                 break;
             }
         }
         this.usersView.render(this.users);
-    }
-
-    async __createAnalyser(stream) {
-        return new AnalyserView(stream);
     }
 
     async __usersReceived(users, from, to) {
@@ -311,9 +297,8 @@ class App {
             this.addUser(user);
 
             if (user.id === this.id) {
+                user.self = true;
                 user.stream = this.stream;
-                user.audioEl = this.__createAudioEl(this.stream, false);
-                user.analyser = await this.__createAnalyser(this.stream);
                 this.usersView.render(this.users);
             } else {
                 user.pc = this.__createPeerConnection(user, this.stream);
@@ -399,18 +384,6 @@ class App {
         });
     }
 
-    __createAudioEl(stream, play = true) {
-        // todo: this should be in views
-        const audio = document.createElement('audio');
-        audio.controls = 'controls';
-        audio.srcObject = stream;
-        audio.style.width = '512px';
-        if (play) {
-            audio.play();
-        }
-        return audio;
-    }
-
     __createPeerConnection(user, stream) {
         const pc = new RTCPeerConnection({
             iceServers: this.iceServers,
@@ -437,10 +410,7 @@ class App {
         });
 
         pc.addEventListener('track', async (ev) => {
-            // todo: refactor this to only add stream to user
-            user.audioEl = this.__createAudioEl(ev.streams[0]);
-            user.analyser = await this.__createAnalyser(ev.streams[0]);
-
+            user.stream = ev.streams[0];
             this.usersView.render(this.users);
         });
 
