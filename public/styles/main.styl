@@ -1,5 +1,5 @@
 *
-    box-sizing border-box
+    // box-sizing border-box
 
 body
     margin 0
@@ -24,6 +24,12 @@ img
     cursor pointer;
 .lobby-name:hover
     color orange
+
+.hidden
+    display none !important
+
+.volume-control
+    display flex
 
 a
     color inherit
@@ -65,9 +71,10 @@ div.lobby
                     div
                         margin-left 4px
                         input
-                            height 24px
+                            height 28px
+                            margin-left 6px;
                         svg
-                            margin-top calc((32px - 24px) / 2)
+                            margin-top 4px
                             width 24px
                             height 24px
                             cursor pointer

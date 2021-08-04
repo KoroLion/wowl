@@ -2,6 +2,64 @@ import AnalyserView from './AnalyserView.js';
 
 import { volumeUpFill, volumeMuteFill, soundwave, micMuteFill, micFill } from '../icons.js';
 
+export class VolumeControlView {
+    constructor(oninput) {
+        this.el = document.createElement('div');
+        this.el.classList.add('volume-control');
+        this.oninput = oninput;
+
+        this.muted = false;
+        this.savedVolume = 0;
+
+        this.volumeInput = document.createElement('input');
+        this.volumeInput.type = 'range';
+        this.volumeInput.value = 100;
+        this.volumeInput.max = 100;
+
+        const volumeDiv = document.createElement('div');
+        volumeDiv.innerHTML = volumeUpFill;
+
+        this.el.appendChild(volumeDiv);
+        this.el.appendChild(this.volumeInput);
+
+        this.volumeInput.addEventListener('input', (ev) => {
+            const volume = this.getVolume();
+            if (volume === 0) {
+                volumeDiv.innerHTML = volumeMuteFill;
+            } else {
+                this.muted = false;
+                volumeDiv.innerHTML = volumeUpFill;
+            }
+
+            this.oninput(volume);
+        });
+
+        volumeDiv.addEventListener('click', (ev) => {
+            const volume = this.getVolume();
+            if (volume !== 0) {
+                this.savedVolume = volume;
+                this.setVolume(0);
+                this.muted = true;
+            } else if (this.muted) {
+                this.setVolume(this.savedVolume);
+                this.muted = false;
+            }
+        });
+    }
+
+    getVolume() {
+        return parseInt(this.volumeInput.value);
+    }
+
+    setVolume(volume) {
+        this.volumeInput.value = volume;
+        this.volumeInput.dispatchEvent(new Event('input'));
+    }
+
+    render() {
+    }
+}
+
 export default class UsersView {
     constructor(elId) {
         this.el = document.getElementById(elId);
@@ -67,45 +125,35 @@ export default class UsersView {
 
             const controlsDiv = document.createElement('div');
             controlsDiv.classList.add('controls');
-            const volumeInput = document.createElement('input');
-            volumeInput.type = 'range';
-            volumeInput.value = 100;
-            volumeInput.max = 100;
 
             let div = document.createElement('div');
-            div.appendChild(volumeInput);
             controlsDiv.appendChild(div);
-
-            const volumeDiv = document.createElement('div');
-            volumeDiv.innerHTML = volumeUpFill;
-            controlsDiv.prepend(volumeDiv);
-            volumeDiv.addEventListener('click', () => {
-                volumeInput.value = 0;
-            });
 
             userBarDiv.appendChild(controlsDiv);
             memberDiv.appendChild(userBarDiv);
 
             if (user.stream) {
                 const audioEl = document.createElement('audio');
-                volumeInput.addEventListener('input', (ev) => {
-                    const volume = parseInt(ev.target.value);
+                audioEl.srcObject = user.stream;
+                audioEl.style.width = `${this.width}px`;
+                this.audios.push(audioEl);
+
+                const volumeControl = new VolumeControlView((volume) => {
                     audioEl.volume = volume / 100;
                     if (volume === 0) {
                         audioEl.pause();
-                        volumeDiv.innerHTML = volumeMuteFill;
                     } else {
                         audioEl.play();
-                        volumeDiv.innerHTML = volumeUpFill;
                     }
                 });
-                audioEl.srcObject = user.stream;
-                audioEl.style.width = `${this.width}px`;
+                controlsDiv.appendChild(volumeControl.el);
+
                 if (!user.self) {
                     audioEl.play();
+                } else {
+                    volumeControl.setVolume(0);
+                    audioEl.volume = 0;
                 }
-                this.audios.push(audioEl);
-                memberDiv.appendChild(audioEl);
 
                 const analyserView = new AnalyserView(user.stream, {
                     width: this.width,
@@ -113,6 +161,13 @@ export default class UsersView {
                 });
                 this.analysers.push(analyserView);
                 memberDiv.appendChild(analyserView.el);
+
+                const analyserToggleDiv = document.createElement('div');
+                analyserToggleDiv.innerHTML = soundwave;
+                analyserToggleDiv.addEventListener('click', () => {
+                    analyserView.el.classList.toggle('hidden');
+                });
+                controlsDiv.prepend(analyserToggleDiv);
             }
             this.el.appendChild(memberDiv);
         }
