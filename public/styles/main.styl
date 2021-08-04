@@ -41,6 +41,16 @@ a:hover
 div.lobby
     div.members
         margin-left 32px
+        div.member.speaking
+            div.user-bar
+                div.username
+                    transition-duration 0.1s !important
+                    color orange
+                    a
+                        div.avatar
+                            div.circle
+                                transition-duration 0.1s !important
+                                border 3px solid orange
         div.member
             margin-bottom 16px
             border-radius 8px
@@ -52,17 +62,33 @@ div.lobby
                 background-color #1D1E1F
                 line-height 32px
                 div.username
+                    transition 1s ease color
                     a
                         font-size 18px
                         text-decoration none
                         font-weight bold
                         display flex
                         div.username
-                            margin-left 10px
-                        img
-                            width 32px
-                            height 32px
+                            margin-left 4px
+                        div.avatar
+                            position relative
                             border-radius 32px
+                            overflow hidden
+                            div.circle
+                                position absolute
+                                top 0
+                                left 0
+                                border-radius 32px
+                                border 2px solid rgba(255, 255, 255, 0)
+                                transition 1s ease border-color
+                                box-sizing border-box
+                                width 32px
+                                height 32px
+                                z-index 1000
+                            img
+                                display block
+                                width 32px
+                                height 32px
                 div.controls
                     display flex
                     justify-content right

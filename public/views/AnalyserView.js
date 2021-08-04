@@ -1,11 +1,16 @@
 export default class AnalyserView {
-    constructor(stream, size = { width: 512, height: 128 }) {
+    constructor(stream, size = { width: 512, height: 128 }, user = null) {
         this.el = document.createElement('canvas');
         this.el.width = size.width;
         this.el.height = size.height;
+        this.user = user;
+
         this.ctx = this.el.getContext('2d');
 
         this.analyser = this.__createAnalyser(stream);
+
+        this.bufferLength = this.analyser.frequencyBinCount;
+        this.dataArray = new Uint8Array(this.bufferLength);
     }
 
     __createAnalyser(stream) {
@@ -18,12 +23,15 @@ export default class AnalyserView {
         return analyser;
     }
 
+    // use after render()
+    getVolume() {
+        return Math.max(...this.dataArray.map(Math.abs)) - 128;
+    }
+
     render() {
         const { width, height } = this.el;
 
-        const bufferLength = this.analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        this.analyser.getByteTimeDomainData(dataArray);
+        this.analyser.getByteTimeDomainData(this.dataArray);
 
         const ctx = this.ctx;
         ctx.fillStyle = '#202020';
@@ -37,11 +45,11 @@ export default class AnalyserView {
 
         ctx.strokeStyle = '#FAFAFA';
         ctx.beginPath();
-        const sliceWidth = width * 1.0 / bufferLength;
+        const sliceWidth = width * 1.0 / this.bufferLength;
         let x = 0;
 
-        for (let i = 0; i < bufferLength; i++) {
-            const v = dataArray[i] / 128.0;
+        for (let i = 0; i < this.bufferLength; i++) {
+            const v = this.dataArray[i] / 128.0;
             const y = v * height / 2;
 
             if (i === 0) {

@@ -1,64 +1,7 @@
 import AnalyserView from './AnalyserView.js';
+import VolumeControlView from './VolumeControlView.js';
 
-import { volumeUpFill, volumeMuteFill, soundwave, micMuteFill, micFill } from '../icons.js';
-
-export class VolumeControlView {
-    constructor(oninput) {
-        this.el = document.createElement('div');
-        this.el.classList.add('volume-control');
-        this.oninput = oninput;
-
-        this.muted = false;
-        this.savedVolume = 0;
-
-        this.volumeInput = document.createElement('input');
-        this.volumeInput.type = 'range';
-        this.volumeInput.value = 100;
-        this.volumeInput.max = 100;
-
-        const volumeDiv = document.createElement('div');
-        volumeDiv.innerHTML = volumeUpFill;
-
-        this.el.appendChild(volumeDiv);
-        this.el.appendChild(this.volumeInput);
-
-        this.volumeInput.addEventListener('input', (ev) => {
-            const volume = this.getVolume();
-            if (volume === 0) {
-                volumeDiv.innerHTML = volumeMuteFill;
-            } else {
-                this.muted = false;
-                volumeDiv.innerHTML = volumeUpFill;
-            }
-
-            this.oninput(volume);
-        });
-
-        volumeDiv.addEventListener('click', (ev) => {
-            const volume = this.getVolume();
-            if (volume !== 0) {
-                this.savedVolume = volume;
-                this.setVolume(0);
-                this.muted = true;
-            } else if (this.muted) {
-                this.setVolume(this.savedVolume);
-                this.muted = false;
-            }
-        });
-    }
-
-    getVolume() {
-        return parseInt(this.volumeInput.value);
-    }
-
-    setVolume(volume) {
-        this.volumeInput.value = volume;
-        this.volumeInput.dispatchEvent(new Event('input'));
-    }
-
-    render() {
-    }
-}
+import { soundwave, micMuteFill, micFill } from '../icons.js';
 
 export default class UsersView {
     constructor(elId) {
@@ -73,6 +16,14 @@ export default class UsersView {
         const render = () => {
             for (const analyser of this.analysers) {
                 analyser.render();
+
+                if (analyser.user && analyser.user.memberDiv) {
+                    if (analyser.getVolume() >= 5) {
+                        analyser.user.memberDiv.classList.add('speaking');
+                    } else if (analyser.user.memberDiv.classList.contains('speaking')) {
+                        analyser.user.memberDiv.classList.remove('speaking');
+                    }
+                }
             }
 
             requestAnimationFrame(render);
@@ -105,6 +56,7 @@ export default class UsersView {
         this.users = users;
         for (const user of users) {
             const memberDiv = document.createElement('div');
+            user.memberDiv = memberDiv;
             memberDiv.classList.add('member');
             memberDiv.style.width = `${this.width}px`;
 
@@ -113,7 +65,8 @@ export default class UsersView {
             userBarDiv.innerHTML = `
                 <div class="username">
                     <a href="${user.profileUrl}" target="_blank">
-                        <div>
+                        <div class="avatar">
+                            <div class="circle"></div>
                             <img src="${user.avatarUrl}">
                         </div>
                         <div class="username">
@@ -158,14 +111,18 @@ export default class UsersView {
                 const analyserView = new AnalyserView(user.stream, {
                     width: this.width,
                     height: 128
-                });
+                }, user);
                 this.analysers.push(analyserView);
-                memberDiv.appendChild(analyserView.el);
+
+                const analyserDiv = document.createElement('div');
+                analyserDiv.classList.add('analyser');
+                analyserDiv.appendChild(analyserView.el);
+                memberDiv.appendChild(analyserDiv);
 
                 const analyserToggleDiv = document.createElement('div');
                 analyserToggleDiv.innerHTML = soundwave;
                 analyserToggleDiv.addEventListener('click', () => {
-                    analyserView.el.classList.toggle('hidden');
+                    analyserDiv.classList.toggle('hidden');
                 });
                 controlsDiv.prepend(analyserToggleDiv);
             }
