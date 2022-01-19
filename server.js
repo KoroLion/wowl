@@ -7,7 +7,11 @@ const WebSocket = require('ws');
 
 const jwt = require('jsonwebtoken');
 
-const DEBUG_USERNAMES = ['Kiba', 'Toboe', 'Hige', 'Tsume'];
+const DEBUG_USERNAMES = [
+    'Kiba', 'Toboe', 'Hige', 'Tsume', 'Blue',
+    'Leo', 'Kova', 'Jake', 'Kobb',
+    'Wolf', 'Fang', 'Thane', 'River'
+];
 
 function getRandomArrEl(arr) {
     return arr[Math.round(Math.random() * (arr.length - 1))]
@@ -59,7 +63,7 @@ class Server {
         let userData = {
             username: getRandomArrEl(DEBUG_USERNAMES),
             profileUrl: 'http://localhost',
-            avatarUrl: 'https://ddragon.leagueoflegends.com/cdn/11.15.1/img/profileicon/5028.png'
+            avatarUrl: 'https://ddragon.leagueoflegends.com/cdn/12.1.1/img/profileicon/4414.png'
         }
         if (!this.config.debug) {
             try {
@@ -201,4 +205,4 @@ if (config.debug) {
 const httpServer = http.createServer(app);
 const server = new Server(httpServer, config);
 
-httpServer.listen(8081);
+httpServer.listen(config.port);

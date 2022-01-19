@@ -1,7 +1,9 @@
-<html>
+<!DOCTYPE html>
+<html lang="en">
 <head>
     <title>WOWL</title>
 
+    <link rel="stylesheet" type="text/css" href="styles/colors.css">
     <link rel="stylesheet" type="text/css" href="styles/main.css">
 
     <link rel="icon" href="images/favicon.ico">
@@ -39,16 +41,26 @@
 
         <br><br>
 
-        <h2>Lobbies:</h2>
+        <h2>Voice lobbies</h2>
         <div class="lobby">
             <h3 class="lobby-name" id="wolcharnia">🐺Волчарня</h3>
             <div class="members" id="membersList">
             </div>
         </div>
+
+        <h2>Chat</h2>
+        <div class="chat">
+            <div id="messagesDiv" class="messages">
+            </div>
+
+            <div class="message-input">
+                <textarea id="messageTextarea" placeholder="Your message... (Ctrl+Enter to send)"></textarea>
+            </div>
+        </div>
     </div>
 
     <footer>
-        © Created by <a href="https://liokor.com/@KoroLion" target="_blank">KoroLion</a>, 2021
+        © Created by <a href="https://liokor.com/@KoroLion" target="_blank">KoroLion</a>, 2022
     </footer>
 
     <script type="module" src="index.js"></script>

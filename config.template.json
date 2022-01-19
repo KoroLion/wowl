@@ -1,5 +1,6 @@
 {
     "debug": true,
+    "port": 8081,
     "authUrl": "http://auth.ru",
     "jwtKey": "keep_it_in_secret",
     "iceServers": [

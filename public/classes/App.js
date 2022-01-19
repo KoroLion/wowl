@@ -2,6 +2,7 @@ import User from './User.js';
 
 import MediaDeviceSelectView from '../views/MediaDeviceSelectView.js';
 import UsersView from '../views/UsersView.js';
+import { addMessage } from "../utils/chat.js";
 
 class App {
     constructor() {
@@ -156,7 +157,7 @@ class App {
         }
 
         try {
-            this.stream = await await navigator.mediaDevices.getUserMedia({
+            this.stream = await navigator.mediaDevices.getUserMedia({
                 audio: {
                     deviceId: this.mediaDeviceSelectView.getDeviceId(),
                     echoCancellation: true,
@@ -209,7 +210,7 @@ class App {
 
     __getWsAddr() {
         if (window.location.hostname === 'localhost') {
-            return 'ws://localhost:8081';
+            return `ws://${window.location.host}`;
         } else {
             return `wss://${window.location.hostname}/ws/`;
         }
@@ -239,6 +240,8 @@ class App {
         console.log(`RTC offer received from ${user.username}`);
 
         user.pc = await this.__createPeerConnection(user, this.stream);
+        user.dc = user.pc.createDataChannel('chat');
+
         await user.pc.setRemoteDescription(offer);
         const answer = await user.pc.createAnswer();
         await user.pc.setLocalDescription(answer);
@@ -302,6 +305,8 @@ class App {
                 this.usersView.render(this.users);
             } else {
                 user.pc = this.__createPeerConnection(user, this.stream);
+                user.dc = user.pc.createDataChannel('chat');
+
                 const offer = await user.pc.createOffer({
                     offerToReceiveAudio: 1
                 });
@@ -414,7 +419,43 @@ class App {
             this.usersView.render(this.users);
         });
 
+        pc.addEventListener('datachannel', (ev) => {
+            console.log('Data channel created!')
+            ev.channel.addEventListener('message', (ev) => {
+                addMessage(messagesDiv, {
+                    username: user.username,
+                    avatarUrl: user.avatarUrl,
+                    datetime: new Date(),
+                    content: ev.data
+                })
+            })
+        })
+
         return pc;
+    }
+
+    sendMessage() {
+        const currentUser = this.__getUser(this.id)
+        if (!currentUser) {
+            alert('You need to join voice channel first!')
+            return
+        }
+
+        const content = messageTextarea.value
+        messageTextarea.value = ''
+
+        addMessage(messagesDiv, {
+            username: currentUser.username,
+            avatarUrl: currentUser.avatarUrl,
+            datetime: new Date(),
+            content: content
+        })
+
+        for (const user of this.users) {
+            if (user.id !== this.id) {
+                user.dc.send(content)
+            }
+        }
     }
 
     mute(mute = true) {

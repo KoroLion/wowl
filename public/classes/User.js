@@ -9,6 +9,7 @@ export default class User {
         this.audioEl = null;
 
         this.pc = null;
+        this.dc = null;
         this.stream = null;
     }
 

@@ -1,6 +1,10 @@
 import App from './classes/App.js';
 
+import { loadMessages } from './utils/chat.js'
+
 async function main() {
+    loadMessages(messagesDiv)
+
     try {
         const app = new App();
         await app.init();
@@ -25,6 +29,11 @@ async function main() {
         });
         statsBtn.addEventListener('click', async () => {
             await app.infoToConsole();
+        });
+        messageTextarea.addEventListener('keypress', (ev) => {
+            if (ev.ctrlKey && ev.key === 'Enter') {
+                app.sendMessage();
+            }
         });
     } catch (e) {
         console.log(e);
