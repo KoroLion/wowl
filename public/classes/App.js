@@ -28,6 +28,7 @@ class App {
         }, window.localStorage.getItem('defaultAudioDeviceId'));
 
         this.connectSound = new Audio('sounds/awu.mp3');
+        this.messageSound = new Audio('sounds/pickdilk.mp3')
         this.disconnectSound = new Audio('sounds/wuf.mp3');
     }
 
@@ -428,6 +429,7 @@ class App {
                     datetime: new Date(),
                     content: ev.data
                 })
+                this.messageSound.play()
             })
         })
 
