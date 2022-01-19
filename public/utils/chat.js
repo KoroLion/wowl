@@ -19,7 +19,7 @@ export const createMessageEl = function (message) {
                 </div>
                 <div class="body">
                     <div class="title">
-                        <span class="username"></span>
+                        <a href="#" class="username" target="_blank"></a>
                         <span class="datetime">${dateToString(message.datetime)}</span>
                     </div>
                     <div class="content"></div>
@@ -27,7 +27,11 @@ export const createMessageEl = function (message) {
             </div>`, 'text/html')
 
     template.querySelector('img').src = message.avatarUrl
-    template.querySelector('span.username').textContent = message.username
+
+    const username = template.querySelector('a.username')
+    username.textContent = message.username
+    username.href = `https://liokor.com/@${message.username}`
+
     template.querySelector('div.content').textContent = message.content
 
     return template.body.firstChild
