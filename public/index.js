@@ -31,7 +31,7 @@ async function main() {
             await app.infoToConsole();
         });
         messageTextarea.addEventListener('keypress', (ev) => {
-            if (ev.ctrlKey && ev.key === 'Enter') {
+            if (ev.ctrlKey && ev.code === 'Enter') {
                 app.sendMessage();
             }
         });
