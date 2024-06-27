@@ -1,89 +1,49 @@
 import http = require('http');
-import fs = require("fs")
-import perfHooks = require('perf_hooks');
-
 import express = require('express');
 import ws = require('ws');
 import jwt = require('jsonwebtoken');
 
-const DEBUG_USERNAMES = [
-    'Kiba', 'Toboe', 'Hige', 'Tsume', 'Blue',
-    'Leo', 'Kova', 'Jake', 'Kobb',
-    'Wolf', 'Fang', 'Thane', 'River'
-];
+import { Config } from "../schemas/config_schema"
+import User from "../models/user";
 
-function getRandomArrEl(arr) {
-    return arr[Math.round(Math.random() * (arr.length - 1))];
-}
 
-class User {
-    id: number
-    ws: ws.WebSocket
-    connectedTime: DOMHighResTimeStamp
-
-    username: string
-    profileUrl: string
-    avatarUrl: string
-    utfIcon: string
-
-    constructor(id: number, ws: ws.WebSocket) {
-        this.id = id;
-        this.ws = ws;
-        this.connectedTime = perfHooks.performance.now();
-
-        this.username = null;
-        this.profileUrl = null;
-        this.avatarUrl = null;
-        this.utfIcon = null;
-    }
-
-    send(data) {
-        this.ws.send(JSON.stringify(data));
-    }
-
-    data() {
-        return {
-            id: this.id,
-            username: this.username,
-            profileUrl: this.profileUrl,
-            avatarUrl: this.avatarUrl,
-            utfIcon: this.utfIcon
-        };
-    }
-}
-
-class Server {
+export default class Server {
     curId: number
-    config: any
-    httpServer: http.Server;
-    wsServer: ws.Server;
-    users: User[];
+    config: Config
+    httpServer: http.Server
+    wsServer: ws.Server
+    users: User[]
 
-    debugStaticFolder: string = "./src/frontend";
+    __DEBUG_STATIC_FOLDER = "./src/frontend";
+    __DEBUG_USERNAMES = [
+        'Kiba', 'Toboe', 'Hige', 'Tsume', 'Blue',
+        'Leo', 'Kova', 'Jake', 'Kobb',
+        'Wolf', 'Fang', 'Thane', 'River'
+    ]
 
-    constructor(config) {
-        this.curId = 1;
-        this.config = config;
+    constructor(config: Config) {
+        this.curId = 1
+        this.config = config
 
-        this.httpServer = this.__createHttpServer(config.debug);
-        this.wsServer = new ws.Server({server: this.httpServer});
+        this.httpServer = this.__createHttpServer(config.debug)
+        this.wsServer = new ws.Server({server: this.httpServer})
 
-        this.users = [];
+        this.users = []
     }
 
     __createHttpServer(debug: boolean): http.Server {
         const app = express();
 
         if (debug) {
-            console.log(`DEBUG: Serving static files from '${this.debugStaticFolder}'`);
-            app.use(express.static(this.debugStaticFolder));
+            console.log(`DEBUG: Serving static files from '${this.__DEBUG_STATIC_FOLDER}'`);
+            app.use(express.static(this.__DEBUG_STATIC_FOLDER));
         }
 
         return http.createServer(app);
     }
 
     __forward(curUser: User, to: number, data): void {
-        const user = this.getUser(to);
+        const user = this.__getUser(to);
         if (user === null) {
             console.log(`User with id = ${to} was not found!`);
             return;
@@ -97,7 +57,7 @@ class Server {
         let userData;
         if (this.config.debug) {
             userData = {
-                username: getRandomArrEl(DEBUG_USERNAMES),
+                username: this.__getRandomDebugUsername(),
                 profileUrl: 'http://localhost',
                 avatarUrl: 'https://ddragon.leagueoflegends.com/cdn/12.1.1/img/profileicon/4414.png'
             };
@@ -121,7 +81,7 @@ class Server {
             command: 'selfInfo',
             data: curUser.data()
         });
-        this.sendAll({
+        this.__sendAll({
             command: 'connected',
             data: curUser.data()
         }, curUser.id);
@@ -143,13 +103,15 @@ class Server {
     listen(): void {
         this.wsServer.on('listening', () => {
             const addr = this.wsServer.address();
-            if (typeof(addr) === "string") {
+            if (typeof (addr) === "string") {
                 console.log(`WS server is listening at ${addr}`);
             } else {
                 console.log(`WS server is listening at ${addr.address}:${addr.port}`);
             }
         });
-        this.wsServer.on('connection', (socket: ws.WebSocket) => { this.__connectionHandler(socket) });
+        this.wsServer.on('connection', (socket: ws.WebSocket) => {
+            this.__connectionHandler(socket)
+        });
 
         this.httpServer.listen(this.config.port);
     }
@@ -192,7 +154,7 @@ class Server {
         });
 
         socket.on('close', () => {
-            this.sendAll({
+            this.__sendAll({
                 command: 'disconnected',
                 data: curUser.id
             }, curUser.id);
@@ -206,7 +168,7 @@ class Server {
         });
     }
 
-    sendAll(data: {command: string, data: any}, except: number = 0): void {
+    __sendAll(data: { command: string, data: any }, except: number = 0): void {
         for (const user of this.users) {
             if (user.id !== except) {
                 user.send(data);
@@ -214,7 +176,7 @@ class Server {
         }
     }
 
-    getUser(id: number): User | null {
+    __getUser(id: number): User | null {
         for (const user of this.users) {
             if (user.id === id) {
                 return user;
@@ -222,10 +184,8 @@ class Server {
         }
         return null;
     }
+
+    __getRandomDebugUsername(): string {
+        return this.__DEBUG_USERNAMES[Math.round(Math.random() * (this.__DEBUG_USERNAMES.length - 1))];
+    }
 }
-
-const data = fs.readFileSync('config.json').toString();
-const config = JSON.parse(data);
-
-const server = new Server(config);
-server.listen();
