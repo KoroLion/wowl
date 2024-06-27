@@ -3,5 +3,6 @@
 node_modules
 
 config.json
-
+src/backend/**/*.js
+yarn-error.log
 *.css
