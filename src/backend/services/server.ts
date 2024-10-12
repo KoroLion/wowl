@@ -125,6 +125,12 @@ export default class Server {
             command: "setUsers",
             data: this.__serializeUsers()
         });
+
+        // todo: deprecated
+        this.__sendAll({
+            command: 'connected',
+            data: curUser.serialize()
+        }, curUser.id);
     }
 
     __getUsers(curUser: User): void {
