@@ -118,9 +118,9 @@ class App {
         }
 
         let jwt = '';
-        if (!this.debug) {
+        // if (!this.debug) {
             jwt = await this.auth();
-        }
+        // }
         this.send({
             command: 'auth',
             data: jwt
@@ -328,6 +328,12 @@ class App {
         usernameLink.innerHTML = user.username + user.utfIcon;
     }
 
+    async __pingReceived() {
+        this.send({
+            command: "pong"
+        })
+    }
+
     async __connectedReceived(user) {
         this.addUser(new User(user));
     }
@@ -355,6 +361,7 @@ class App {
                     this.__serverInfoReceived(info, resolve, ws);
                 },
                 selfInfo: this.__selfInfoReceived.bind(this),
+                ping: this.__pingReceived.bind(this),
                 candidate: this.__candidateReceived.bind(this),
                 offer: this.__offerReceived.bind(this),
                 answer: this.__answerReceived.bind(this),

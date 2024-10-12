@@ -2,9 +2,11 @@ import http = require('http');
 import express = require('express');
 import ws = require('ws');
 import jwt = require('jsonwebtoken');
+import crypto = require("crypto")
 
 import { Config } from "../schemas/config_schema"
 import User from "../models/user";
+import Room from "../models/room"
 
 
 export default class Server {
@@ -13,9 +15,14 @@ export default class Server {
     httpServer: http.Server
     wsServer: ws.Server
     users: User[]
+    rooms: Map<crypto.UUID, Room>
 
-    __DEBUG_STATIC_FOLDER = "./src/frontend";
-    __DEBUG_USERNAMES = [
+    pingInterval: NodeJS.Timeout
+
+    __PING_INTERVAL_MS: number = 10000
+
+    __DEBUG_STATIC_FOLDER: string = "./src/frontend";
+    __DEBUG_USERNAMES: string[] = [
         'Kiba', 'Toboe', 'Hige', 'Tsume', 'Blue',
         'Leo', 'Kova', 'Jake', 'Kobb',
         'Wolf', 'Fang', 'Thane', 'River'
@@ -28,7 +35,35 @@ export default class Server {
         this.httpServer = this.__createHttpServer(config.debug)
         this.wsServer = new ws.Server({server: this.httpServer})
 
-        this.users = []
+        this.users = [];
+        this.rooms = new Map();
+    }
+
+    listen(): void {
+        this.wsServer.on('listening', () => {
+            const addr = this.wsServer.address();
+            if (typeof (addr) === "string") {
+                console.log(`WS server is listening at ${addr}`);
+            } else {
+                console.log(`WS server is listening at ${addr.address}:${addr.port}`);
+            }
+        });
+        this.wsServer.on('connection', (socket: ws.WebSocket) => {
+            this.__connectionHandler(socket)
+        });
+
+        this.pingInterval = setInterval(() => {
+            this.users.map((user) => {
+                if (performance.now() - user.successfulPingTime > this.__PING_INTERVAL_MS * 3) {
+                    user.ws.close();
+                } else {
+                    user.waitingForPong = true
+                    user.send({"command": "ping"})
+                }
+            })
+        }, this.__PING_INTERVAL_MS);
+
+        this.httpServer.listen(this.config.port);
     }
 
     __createHttpServer(debug: boolean): http.Server {
@@ -55,65 +90,52 @@ export default class Server {
 
     __auth(curUser: User, token: string): void {
         let userData;
-        if (this.config.debug) {
-            userData = {
-                username: this.__getRandomDebugUsername(),
-                profileUrl: 'http://localhost',
-                avatarUrl: 'https://ddragon.leagueoflegends.com/cdn/12.1.1/img/profileicon/4414.png'
-            };
-        } else {
-            try {
-                userData = jwt.verify(token, this.config.jwtKey);
-            } catch (e) {
-                console.log('WARN: User with incorrect token was kicked');
-                curUser.ws.close();
-                return;
-            }
+        // if (this.config.debug) {
+        //     userData = {
+        //         uid: null,
+        //         username: this.__getRandomDebugUsername(),
+        //         profileUrl: 'http://localhost',
+        //         avatarUrl: 'https://ddragon.leagueoflegends.com/cdn/12.1.1/img/profileicon/4414.png'
+        //     };
+        // } else {
+        try {
+            userData = jwt.verify(token, this.config.jwtKey);
+        } catch (e) {
+            console.log('WARN: User with incorrect token was kicked');
+            curUser.ws.close();
+            return;
         }
+        // }
 
-        curUser.username = userData.username;
-        curUser.profileUrl = userData.profileUrl;
-        curUser.avatarUrl = userData.avatarUrl;
-        curUser.utfIcon = (userData.utfIcon) ? userData.utfIcon : '';
+        const utfIcon = (userData.utfIcon) ? userData.utfIcon : '';
+        curUser.authenticate(userData.uid, userData.username, userData.profileUrl, userData.avatarUrl, utfIcon);
 
         this.users.push(curUser);
+        console.log(`${curUser.username} connected! (${this.wsServer.clients.size} clients now)`);
+
         curUser.send({
             command: 'selfInfo',
-            data: curUser.data()
+            data: curUser.serialize()
+        });
+        curUser.send({
+            command: "setRooms",
+            data: this.__serializeRooms()
         });
         this.__sendAll({
-            command: 'connected',
-            data: curUser.data()
-        }, curUser.id);
-
-        console.log(`${curUser.username} connected! (${this.wsServer.clients.size} clients now)`);
+            command: "setUsers",
+            data: this.__serializeUsers()
+        });
     }
 
     __getUsers(curUser: User): void {
         const users = [];
-        this.users.map((user) => users.push(user.data()));
+        this.users.map((user) => users.push(user.serialize()));
 
         curUser.send({
             to: curUser.id,
             command: 'users',
             data: users
         });
-    }
-
-    listen(): void {
-        this.wsServer.on('listening', () => {
-            const addr = this.wsServer.address();
-            if (typeof (addr) === "string") {
-                console.log(`WS server is listening at ${addr}`);
-            } else {
-                console.log(`WS server is listening at ${addr.address}:${addr.port}`);
-            }
-        });
-        this.wsServer.on('connection', (socket: ws.WebSocket) => {
-            this.__connectionHandler(socket)
-        });
-
-        this.httpServer.listen(this.config.port);
     }
 
     __connectionHandler(socket: ws.WebSocket): void {
@@ -134,17 +156,33 @@ export default class Server {
                 return;
             }
 
-            if (data.command === 'auth') {
+            if (data.command === 'pong') {
+                if (!curUser.waitingForPong) {
+                    curUser.ws.close()
+                    return;
+                }
+
+                curUser.waitingForPong = false
+                curUser.successfulPingTime = performance.now()
+            } else if (data.command === 'auth') {
                 this.__auth(curUser, data.data);
                 return;
             }
-            if (!curUser.username) {
+
+            if (!curUser.isAuthenticated()) {
                 return;
             }
 
             if (data.command === 'getUsers') {
                 this.__getUsers(curUser);
                 return;
+            } else if (data.command === "createRoom") {
+                const newRoom = new Room(crypto.randomUUID(), curUser);
+                this.rooms.set(newRoom.uid, newRoom)
+                this.__sendAll({command: "setRooms", data: this.__serializeRooms()})
+            } else if (data.command === "deleteRoom") {
+                this.rooms.delete(data.data.roomUid);
+                this.__sendAll({command: "setRooms", data: this.__serializeRooms()})
             }
 
             if (data.to) {
@@ -154,21 +192,24 @@ export default class Server {
         });
 
         socket.on('close', () => {
-            this.__sendAll({
-                command: 'disconnected',
-                data: curUser.id
-            }, curUser.id);
-            console.log(`${curUser.username} disconnected!`);
             for (let i = 0; i < this.users.length; i++) {
                 if (this.users[i].id === curUser.id) {
                     this.users.splice(i, 1);
-                    return;
+                    break;
                 }
             }
+            if (!curUser.isAuthenticated()) {
+                return;
+            }
+            this.__sendAll({
+                command: 'setUsers',
+                data: this.__serializeUsers()
+            }, curUser.id);
+            console.log(`${curUser.username} disconnected!`);
         });
     }
 
-    __sendAll(data: { command: string, data: any }, except: number = 0): void {
+    __sendAll(data: { command: string, data: object | number }, except: number = 0): void {
         for (const user of this.users) {
             if (user.id !== except) {
                 user.send(data);
@@ -187,5 +228,17 @@ export default class Server {
 
     __getRandomDebugUsername(): string {
         return this.__DEBUG_USERNAMES[Math.round(Math.random() * (this.__DEBUG_USERNAMES.length - 1))];
+    }
+
+    __serializeRooms(): object[] {
+        const serializedRooms: object[] = [];
+        Array.from(this.rooms.values()).map((room) => serializedRooms.push(room.serialize()));
+        return serializedRooms;
+    }
+
+    __serializeUsers(): object[] {
+        const serializedUsers: object[] = [];
+        this.users.map((user) => serializedUsers.push(user.serialize()))
+        return serializedUsers;
     }
 }
