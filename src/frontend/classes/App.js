@@ -1,6 +1,7 @@
 import User from './User.js';
 
 import MediaDeviceSelectView from '../views/MediaDeviceSelectView.js';
+import OnlineUsersView from "../views/OnlineUsersView.js";
 import UsersView from '../views/UsersView.js';
 import { addMessage } from "../utils/chat.js";
 
@@ -26,6 +27,7 @@ class App {
         this.mediaDeviceSelectView = new MediaDeviceSelectView('mediaDeviceSelect', () => {
             window.localStorage.setItem('defaultAudioDeviceId', this.mediaDeviceSelectView.getDeviceId());
         }, window.localStorage.getItem('defaultAudioDeviceId'));
+        this.onlineUsersView = new OnlineUsersView("onlineUsersView");
 
         this.connectSound = new Audio('sounds/awu.mp3');
         this.messageSound = new Audio('sounds/pickdilk.mp3')
@@ -328,6 +330,10 @@ class App {
         usernameLink.innerHTML = user.username + user.utfIcon;
     }
 
+    async __setUsersReceived(users) {
+        this.onlineUsersView.render(users);
+    }
+
     async __pingReceived() {
         this.send({
             command: "pong"
@@ -362,6 +368,7 @@ class App {
                 },
                 selfInfo: this.__selfInfoReceived.bind(this),
                 ping: this.__pingReceived.bind(this),
+                setUsers: this.__setUsersReceived.bind(this),
                 candidate: this.__candidateReceived.bind(this),
                 offer: this.__offerReceived.bind(this),
                 answer: this.__answerReceived.bind(this),

@@ -1,6 +1,6 @@
 # WOWL
 
-Simple WebRTC voice/video/text chat. 
+WOWL (wolf + howl) - simple P2P voice/text chat based on WebRTC.
 
 This repository is for both frontend and backend.
 
