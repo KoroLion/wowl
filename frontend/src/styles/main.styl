@@ -1,0 +1,203 @@
+@import "colors"
+
+*
+  box-sizing border-box
+
+body
+  margin 0
+  font-family Arial
+
+  > div.content
+    h1
+      margin 10px 0
+    margin 0 15px
+
+body.dark
+  background-color bgColor1
+  color textColor1
+
+img
+  // to fix chrome's images blurring
+  image-rendering -webkit-optimize-contrast
+  transform translateZ(0)
+
+.room-name
+  transition 0.2s ease color
+  cursor pointer;
+
+.room-name:hover
+  color highlightColor
+
+.hidden
+  display none !important
+
+.volume-control
+  display flex
+
+a
+  color inherit
+  transition 0.2s ease all
+
+a:hover
+  color highlightColor
+
+div#onlineUsersView
+  div.user
+    display: flex
+    margin-top: 16px
+    div.username
+      line-height: 32px
+      padding-left: 8px
+      a
+        text-decoration: none
+    div.avatar
+      width: 32px
+      img
+        width: 32px
+        border-radius: 32px
+
+div.chat
+  background-color bgColor2
+  border-radius 8px
+  max-width 640px
+  height 480px
+  margin-bottom 32px
+
+  div.messages
+    padding 8px
+    overflow-y scroll
+    height 80%
+
+    div.message
+      display flex
+
+      div.avatar
+        img
+          width 48px
+          height 48px
+          border-radius 32px
+
+      div.body
+        margin-left 16px
+
+        div.title
+          a.username
+            text-decoration none
+            font-weight bold
+
+          span.datetime
+            font-style italic
+            font-size 0.9em
+            color textColor2
+          margin-bottom 8px
+
+    div.message:not(:last-child)
+      margin-bottom 16px
+
+  div.message-input
+    height 20%
+
+    textarea
+      height 100%
+      font-family Arial
+      border-radius 0 0 8px 8px
+      border none
+      padding 8px
+
+      color textColor1
+      background-color bgColor3
+
+      display block
+      width 100%
+      resize none
+      box-shadow none
+      outline none
+
+div.room
+  div.members
+    margin-left 32px
+
+    div.member.speaking
+      div.user-bar
+        div.username
+          transition-duration 0.1s !important
+          color highlightColor
+
+          a
+            div.avatar
+              div.circle
+                transition-duration 0.1s !important
+                border 3px solid highlightColor
+
+    div.member
+      margin-bottom 16px
+      border-radius 8px
+      overflow hidden
+
+      div.user-bar
+        display flex
+        height 32px
+        background-color bgColor2
+        line-height 32px
+
+        div.username
+          transition 1s ease color
+
+          a
+            font-size 18px
+            text-decoration none
+            font-weight bold
+            display flex
+
+            div.username
+              margin-left 4px
+
+            div.avatar
+              position relative
+              border-radius 32px
+              overflow hidden
+
+              div.circle
+                position absolute
+                top 0
+                left 0
+                border-radius 32px
+                border 2px solid rgba(255, 255, 255, 0)
+                transition 1s ease border-color
+                box-sizing border-box
+                width 32px
+                height 32px
+                z-index 1000
+
+              img
+                display block
+                width 32px
+                height 32px
+
+        div.controls
+          display flex
+          justify-content right
+          margin-left auto
+          flex-grow 1
+
+          div
+            margin-left 4px
+
+            input
+              height 28px
+              margin-left 6px;
+
+            svg
+              margin-top 4px
+              width 24px
+              height 24px
+              cursor pointer
+
+            svg:hover
+              color highlightColor
+
+footer
+  text-align center
+  color textColor1
+  background-color bgColor2
+  padding 8px

@@ -1,0 +1,18 @@
+{
+    "debug": true,
+    "port": 8080,
+    "authUrl": "http://localhost:8000",
+    "jwtKey": "hng3ou3hbi0543h09543[09ghwph5y-9jhw-93h5pkwphrgp-9ypghw35ihgpwh3508hgp5i3hyoi",
+    "iceServers": [
+        {
+            "urls": "stun:stun.com",
+            "username": "username",
+            "credential": "password"
+        },
+        {
+            "urls": "turn:turn.com",
+            "username": "username",
+            "credential": "password"
+        }
+    ]
+}

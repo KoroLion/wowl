@@ -2,7 +2,7 @@
 
 node_modules
 
-config.json
-src/backend/**/*.js
+src/backend/config.json
+src/**/*.js
 yarn-error.log
 *.css
