@@ -18,7 +18,7 @@ class Server {
         ];
         this.curId = 1;
         this.config = config;
-        this.httpServer = this.__createHttpServer(config.debug);
+        this.httpServer = this.__createHttpServer();
         this.wsServer = new ws.Server({ server: this.httpServer });
         this.users = [];
         this.rooms = new Map();
@@ -49,7 +49,7 @@ class Server {
         }, this.__PING_INTERVAL_MS);
         this.httpServer.listen(this.config.port);
     }
-    __createHttpServer(debug) {
+    __createHttpServer() {
         const app = express();
         return http.createServer(app);
     }
@@ -138,13 +138,13 @@ class Server {
             }
             else if (data.command === "createRoom") {
                 let userRoomsAmount = 0;
-                for (const room of Array.from(this.rooms.values())) {
-                    if (room.ownerId === curUser.id) {
+                for (const room of this.rooms.values()) {
+                    if (room.ownerId === curUser.id || room.ownerUid === curUser.uid) {
                         userRoomsAmount += 1;
                     }
                 }
                 if (userRoomsAmount >= this.__MAXIMUM_ROOMS_PER_USER) {
-                    curUser.send({ command: "errTooManyRooms" });
+                    curUser.send({ command: "error", data: { type: "errTooManyRooms", message: "Too many rooms!" } });
                     return;
                 }
                 const newRoom = new room_1.default(data.data.name, crypto.randomUUID(), curUser);
@@ -152,12 +152,36 @@ class Server {
                 this.__sendAll({ command: "setRooms", data: this.__serializeRooms() });
             }
             else if (data.command === "deleteRoom") {
-                this.rooms.delete(data.data.roomUid);
+                const room = this.rooms.get(data.data.roomUid);
+                if (room.ownerUid !== curUser.uid) {
+                    curUser.send({ command: "error", data: { type: "err", message: "Permission denied!" } });
+                    return;
+                }
+                this.rooms.delete(room.uid);
                 this.__sendAll({ command: "setRooms", data: this.__serializeRooms() });
             }
-            if (data.to) {
+            else if (data.command === "webrtc") {
+                const room = this.__getUserRoom(curUser);
+                if (!room.hasUser(data.to)) {
+                    curUser.send({ command: "error", data: { type: "errNotInTheSameRoom", message: "Only allowed to send WebRTC signals to users in the same room!" } });
+                    return;
+                }
                 this.__forward(curUser, data.to, data);
-                return;
+            }
+            else if (data.command === "joinRoom") {
+                const currentRoom = this.__getUserRoom(curUser);
+                if (currentRoom) {
+                    currentRoom.removeUser(curUser.id);
+                }
+                const room = this.rooms.get(data.data.roomId);
+                if (!room) {
+                    return;
+                }
+                room.addUser(curUser);
+                this.__sendAll({
+                    command: "setRooms",
+                    data: this.__serializeRooms()
+                });
             }
         });
         socket.on('close', () => {
@@ -188,6 +212,14 @@ class Server {
         for (const user of this.users) {
             if (user.id === id) {
                 return user;
+            }
+        }
+        return null;
+    }
+    __getUserRoom(user) {
+        for (const room of this.rooms.values()) {
+            if (room.hasUser(user.id)) {
+                return room;
             }
         }
         return null;

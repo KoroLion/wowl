@@ -1,11 +1,11 @@
 export default class MediaDeviceSelectView {
     el: HTMLInputElement
     onchange: () => void
-    defaultDeviceId: number
+    defaultDeviceId: string
     selected: boolean
 
-    constructor(elId, onchange, defaultDeviceId) {
-        this.el = document.getElementById(elId) as HTMLInputElement;
+    constructor(el: HTMLInputElement, onchange: () => void, defaultDeviceId: string) {
+        this.el = el;
         this.onchange = onchange;
         this.defaultDeviceId = defaultDeviceId;
 
@@ -30,7 +30,7 @@ export default class MediaDeviceSelectView {
 
         if (!this.selected && this.defaultDeviceId) {
             this.selected = true;
-            this.el.value = this.defaultDeviceId.toString();
+            this.el.value = this.defaultDeviceId;
         }
     }
 }

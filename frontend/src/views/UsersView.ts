@@ -2,7 +2,7 @@ import AnalyserView from './AnalyserView.js';
 import VolumeControlView from './VolumeControlView.js';
 import User from '../models/User.js'
 
-import { soundwave } from '../icons.js';
+import { soundwave } from '../utils/icons.js';
 
 export default class UsersView {
     el: HTMLElement

@@ -1,13 +1,14 @@
-import {addMessage} from "../utils/chat";
 import User from "../models/User";
 
 export class WebRTCAdapter {
     __DATACHANNEL_NAME = "chat"
 
     iceServers: RTCIceServer[]
+    sendFunction: (data: SignallingMessageProtocol) => void
 
-    constructor() {
+    constructor(sendFunction: (data: SignallingMessageProtocol) => void) {
         this.iceServers = null;
+        this.sendFunction = sendFunction;
     }
 
     setIceServers(iceServers: RTCIceServer[]) {
@@ -18,7 +19,6 @@ export class WebRTCAdapter {
         user: User,
         stream: MediaStream,
         messageReceivedCallback: (msg: string) => void,
-        rtcCandidateFoundCallback: (candidate: RTCIceCandidate) => void,
         rtcTrackReceivedCallback: (stream: MediaStream) => void
     ): void {
         if (!this.iceServers) {
@@ -38,8 +38,7 @@ export class WebRTCAdapter {
             if (!ev.candidate) {
                 return;
             }
-            rtcCandidateFoundCallback(ev.candidate)
-
+            this.__sendCandidate(user.id, ev.candidate)
         });
         user.pc.addEventListener('iceconnectionstatechange', () => {
             console.log(`RTC status changed for ${user.username}: ${user.pc.iceConnectionState}`);
@@ -59,10 +58,9 @@ export class WebRTCAdapter {
         user: User,
         stream: MediaStream,
         messageReceivedCallback: (msg: string) => void,
-        rtcCandidateFoundCallback: (candidate: RTCIceCandidate) => void,
         rtcTrackReceivedCallback: (stream: MediaStream) => void
     ): Promise<RTCSessionDescriptionInit> {
-        this.createPeerConnection(user, stream, messageReceivedCallback, rtcCandidateFoundCallback, rtcTrackReceivedCallback)
+        this.createPeerConnection(user, stream, messageReceivedCallback, rtcTrackReceivedCallback)
 
         const offer = await user.pc.createOffer({
             offerToReceiveAudio: true
@@ -77,18 +75,17 @@ export class WebRTCAdapter {
         stream: MediaStream,
         offer: RTCSessionDescriptionInit,
         messageReceivedCallback: (msg: string) => void,
-        rtcCandidateFoundCallback: (candidate: RTCIceCandidate) => void,
         rtcTrackReceivedCallback: (stream: MediaStream) => void
-    ): Promise<RTCSessionDescriptionInit> {
+    ): Promise<void> {
         console.log(`RTC offer received from ${user.username}`);
 
-        this.createPeerConnection(user, stream, messageReceivedCallback, rtcCandidateFoundCallback, rtcTrackReceivedCallback);
+        this.createPeerConnection(user, stream, messageReceivedCallback, rtcTrackReceivedCallback);
 
         await user.pc.setRemoteDescription(offer);
         const answer = await user.pc.createAnswer();
         await user.pc.setLocalDescription(answer);
 
-        return answer
+        this.__sendAnswer(user.id, answer)
     }
 
     async handleAnswer(user: User, answer: RTCSessionDescriptionInit): Promise<void> {
@@ -109,5 +106,30 @@ export class WebRTCAdapter {
         } catch (err) {
             console.log(`Unable to add candidate from ${user.username}: ${err.toString()}`);
         }
+        this.__sendCandidate(user.id, candidate);
+    }
+
+    __sendCandidate(userId: number, candidate: RTCIceCandidate): void {
+        this.sendFunction(
+            {
+                to: userId,
+                command: 'webrtc',
+                data: {
+                    type: "candidate",
+                    candidate: candidate
+                }
+            }
+        )
+    }
+
+    __sendAnswer(userId: number, answer: RTCSessionDescriptionInit) {
+        this.sendFunction({
+            to: userId,
+            command: 'webrtc',
+            data: {
+                type: "answer",
+                answer: answer
+            }
+        });
     }
 }

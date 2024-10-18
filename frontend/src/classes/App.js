@@ -27,15 +27,15 @@ class App {
         this.authUrl = null;
         this.users = [];
         this.rooms = new Map();
-        this.webrtcAdapter = new WebRTCAdapter();
+        this.webrtcAdapter = new WebRTCAdapter((data) => {
+            this.send(data);
+        });
         this.usersView = new UsersView(document.getElementById("membersList"));
-        this.mediaDeviceSelectView = new MediaDeviceSelectView('mediaDeviceSelect', () => {
+        this.mediaDeviceSelectView = new MediaDeviceSelectView(document.getElementById('mediaDeviceSelect'), () => {
             window.localStorage.setItem('defaultAudioDeviceId', this.mediaDeviceSelectView.getDeviceId());
         }, window.localStorage.getItem('defaultAudioDeviceId'));
         this.onlineUsersView = new OnlineUsersView(document.getElementById("onlineUsersView"));
-        this.roomsView = new RoomsView(document.getElementById("voiceRoomsView"), this.joinRoom.bind(this), (roomUid) => {
-        }, () => {
-        });
+        this.roomsView = new RoomsView(document.getElementById("voiceRoomsView"), this.joinRoom.bind(this), (roomUid) => { }, () => { });
         this.connectSound = new Audio('sounds/awu.mp3');
         this.messageSound = new Audio('sounds/pickdilk.mp3');
         this.disconnectSound = new Audio('sounds/wuf.mp3');
@@ -44,7 +44,6 @@ class App {
         this.messageTextarea = document.getElementById("messageTextarea");
         this.usernameLink = document.getElementById("usernameLink");
         this.userAvatarImg = document.getElementById("userAvatarImg");
-        this.statsBtn = document.getElementById("statsBtn");
         this.disconnectBtn = document.getElementById("disconnectBtn");
         this.serviceStatusSpan = document.getElementById("serviceStatusSpan");
         this.pcStatusSpan = document.getElementById("pcStatusSpan");
@@ -81,19 +80,16 @@ class App {
                 const offer = yield this.webrtcAdapter.createOffer(user, this.stream, (msg) => {
                     addMessage(this.messagesDiv, msg);
                     this.messageSound.play();
-                }, (candidate) => {
-                    this.send({
-                        to: user.id,
-                        command: 'candidate',
-                        data: candidate
-                    });
                 }, (stream) => {
                     user.stream = stream;
                 });
                 this.send({
                     to: user.id,
-                    command: 'offer',
-                    data: offer
+                    command: 'webrtc',
+                    data: {
+                        type: "offer",
+                        offer: offer
+                    }
                 });
             }
         });
@@ -128,11 +124,9 @@ class App {
         this.active = active;
         if (active) {
             this.disconnectBtn.style.display = null;
-            this.statsBtn.style.display = null;
         }
         else {
             this.disconnectBtn.style.display = 'none';
-            this.statsBtn.style.display = 'none';
         }
         this.pcStatusSpan.innerHTML = (active) ? 'active' : 'inactive';
     }
@@ -176,9 +170,6 @@ class App {
             this.disconnectBtn.addEventListener('click', () => {
                 this.leave();
             });
-            this.statsBtn.addEventListener('click', () => __awaiter(this, void 0, void 0, function* () {
-                yield this.infoToConsole();
-            }));
             this.messageTextarea.addEventListener('keypress', (ev) => {
                 if (ev.ctrlKey && ev.code === 'Enter') {
                     this.sendMessage();
@@ -213,8 +204,7 @@ class App {
                 alert('unable to connect to WS server, please try again later');
                 return;
             }
-            let jwt = '';
-            jwt = yield this.auth();
+            const jwt = yield this.auth();
             this.send({
                 command: 'auth',
                 data: jwt
@@ -357,9 +347,7 @@ class App {
                 setUsers: this.__setUsersReceived.bind(this),
                 setRooms: this.__setRoomsReceived.bind(this),
                 setActiveRoom: this.__setActiveRoomReceived.bind(this),
-                candidate: this.__candidateReceived.bind(this),
-                offer: this.__offerReceived.bind(this),
-                answer: this.__answerReceived.bind(this)
+                webrtc: this.__webrtcSignalReceived.bind(this),
             };
             const addr = this.__getWsAddr();
             console.log(`WS connecting to ${addr}`);
@@ -427,89 +415,36 @@ class App {
         this.muted = mute;
         this.muteBtn.innerHTML = (mute) ? 'Unmute' : 'Mute';
     }
-    infoToConsole() {
+    __webrtcSignalReceived(from, data) {
         return __awaiter(this, void 0, void 0, function* () {
-            if (this.active) {
-                for (const user of this.users) {
-                    if (user.pc) {
-                        console.log(`RTC report for ${user.username}:`);
-                        let localCandidateId = null;
-                        let remoteCandidateId = null;
-                        const stats = yield user.pc.getStats(null);
-                        stats.forEach((report) => {
-                            if (report.type === 'candidate-pair' && report.nominated && report.selected) {
-                                console.log(report);
-                                localCandidateId = report.localCandidateId;
-                                remoteCandidateId = report.remoteCandidateId;
-                            }
-                        });
-                        if (localCandidateId && remoteCandidateId) {
-                            stats.forEach((report) => {
-                                if (report.type === 'local-candidate' && report.id === localCandidateId) {
-                                    console.log(report);
-                                }
-                                else if (report.type === 'remote-candidate' && report.id === remoteCandidateId) {
-                                    console.log(report);
-                                }
-                            });
-                        }
-                        else {
-                            console.log('RTC connection not established yet!');
-                        }
-                    }
+            if (!data.type) {
+                console.log("ERROR: WebRTC Signalling message must contain type");
+                return;
+            }
+            const user = this.__getUser(from);
+            if (!user) {
+                console.log(`ERROR: unable to find user with id = ${from}`);
+                return;
+            }
+            if (data.type == "offer") {
+                if (!this.stream) {
+                    this.stream = yield this.__createMediaStream();
+                    this.mute(this.muted);
+                    this.setActive(true);
                 }
-            }
-        });
-    }
-    __offerReceived(offer, from) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const user = this.__getUser(from);
-            if (!user) {
-                console.log(`ERROR: unable to find user with id = ${from}`);
-                return;
-            }
-            if (!this.stream) {
-                this.stream = yield this.__createMediaStream();
-                this.mute(this.muted);
-                this.setActive(true);
-            }
-            const answer = yield this.webrtcAdapter.handleOffer(user, this.stream, offer, (msg) => {
-                addMessage(this.messagesDiv, msg);
-                this.messageSound.play();
-            }, (candidate) => {
-                this.send({
-                    to: user.id,
-                    command: 'candidate',
-                    data: candidate
+                yield this.webrtcAdapter.handleOffer(user, this.stream, data.offer, (msg) => {
+                    addMessage(this.messagesDiv, msg);
+                    this.messageSound.play();
+                }, (stream) => {
+                    user.stream = stream;
                 });
-            }, (stream) => {
-                user.stream = stream;
-            });
-            this.send({
-                to: user.id,
-                command: 'answer',
-                data: answer
-            });
-        });
-    }
-    __answerReceived(answer, from) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const user = this.__getUser(from);
-            if (!user) {
-                console.log(`ERROR: unable to find user with id = ${from}`);
-                return;
             }
-            yield this.webrtcAdapter.handleAnswer(user, answer);
-        });
-    }
-    __candidateReceived(candidate, from) {
-        return __awaiter(this, void 0, void 0, function* () {
-            const user = this.__getUser(from);
-            if (!user) {
-                console.log(`ERROR: unable to find user with id = ${from}`);
-                return;
+            else if (data.type == "answer") {
+                yield this.webrtcAdapter.handleAnswer(user, data.answer);
             }
-            yield this.webrtcAdapter.handleCandidate(user, candidate);
+            else if (data.type === "candidate") {
+                yield this.webrtcAdapter.handleCandidate(user, data.candidate);
+            }
         });
     }
 }

@@ -1,4 +1,4 @@
-import { volumeUpFill, volumeMuteFill } from '../icons.js';
+import { volumeUpFill, volumeMuteFill } from '../utils/icons.js';
 
 export default class VolumeControlView {
     el: HTMLElement;

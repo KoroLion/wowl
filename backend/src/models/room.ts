@@ -6,12 +6,14 @@ export default class Room {
     uid: crypto.UUID
     name: string
     ownerId: number
+    ownerUid: number | null
     usersById: Map<number, User>
 
     constructor(name: string, uid: crypto.UUID, owner: User) {
         this.name = name
         this.uid = uid;
         this.ownerId = owner.id;
+        this.ownerUid = owner.uid;
         this.usersById = new Map();
     }
 
@@ -27,6 +29,10 @@ export default class Room {
         return Array.from(this.usersById.values())
     }
 
+    hasUser(userId: number): boolean {
+        return this.usersById.has(userId)
+    }
+
     serialize(): object {
         const serializedUsers: object[] = [];
         for (const user of this.getUsers()) {
@@ -37,6 +43,7 @@ export default class Room {
             uid: this.uid,
             name: this.name,
             ownerId: this.ownerId,
+            ownerUid: this.ownerUid,
             users: serializedUsers
         }
     }

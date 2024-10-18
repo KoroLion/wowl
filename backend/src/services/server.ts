@@ -32,7 +32,7 @@ export default class Server {
         this.curId = 1
         this.config = config
 
-        this.httpServer = this.__createHttpServer(config.debug)
+        this.httpServer = this.__createHttpServer()
         this.wsServer = new ws.Server({server: this.httpServer})
 
         this.users = [];
@@ -66,7 +66,7 @@ export default class Server {
         this.httpServer.listen(this.config.port);
     }
 
-    __createHttpServer(debug: boolean): http.Server {
+    __createHttpServer(): http.Server {
         const app = express();
         return http.createServer(app);
     }
@@ -176,13 +176,13 @@ export default class Server {
                 return;
             } else if (data.command === "createRoom") {
                 let userRoomsAmount = 0
-                for (const room of Array.from(this.rooms.values())) {
-                    if (room.ownerId === curUser.id) {
+                for (const room of this.rooms.values()) {
+                    if (room.ownerId === curUser.id || room.ownerUid === curUser.uid) {
                         userRoomsAmount += 1
                     }
                 }
                 if (userRoomsAmount >= this.__MAXIMUM_ROOMS_PER_USER) {
-                    curUser.send({command: "errTooManyRooms"})
+                    curUser.send({command: "error", data: {type: "errTooManyRooms", message: "Too many rooms!"}})
                     return;
                 }
 
@@ -190,13 +190,38 @@ export default class Server {
                 this.rooms.set(newRoom.uid, newRoom)
                 this.__sendAll({command: "setRooms", data: this.__serializeRooms()})
             } else if (data.command === "deleteRoom") {
-                this.rooms.delete(data.data.roomUid);
-                this.__sendAll({command: "setRooms", data: this.__serializeRooms()})
-            }
+                const room = this.rooms.get(data.data.roomUid)
+                if (room.ownerUid !== curUser.uid) {
+                    curUser.send({command: "error", data: {type: "err", message: "Permission denied!"}})
+                    return;
+                }
 
-            if (data.to) {
-                this.__forward(curUser, data.to, data);
-                return;
+                this.rooms.delete(room.uid);
+                this.__sendAll({command: "setRooms", data: this.__serializeRooms()})
+            } else if (data.command === "webrtc") {
+                const room = this.__getUserRoom(curUser)
+                if (!room.hasUser(data.to)) {
+                    curUser.send({command: "error", data: {type: "errNotInTheSameRoom", message: "Only allowed to send WebRTC signals to users in the same room!"}})
+                    return
+                }
+                this.__forward(curUser, data.to, data)
+            } else if (data.command === "joinRoom") {
+                const currentRoom = this.__getUserRoom(curUser)
+                if (currentRoom) {
+                    currentRoom.removeUser(curUser.id)
+                }
+
+                const room = this.rooms.get(data.data.roomId);
+                if (!room) {
+                    // todo: send error
+                    return;
+                }
+                room.addUser(curUser)
+
+                this.__sendAll({
+                    command: "setRooms",
+                    data: this.__serializeRooms()
+                })
             }
         });
 
@@ -233,6 +258,15 @@ export default class Server {
             }
         }
         return null;
+    }
+
+    __getUserRoom(user: User): Room | null {
+        for (const room of this.rooms.values()) {
+            if (room.hasUser(user.id)) {
+                return room
+            }
+        }
+        return null
     }
 
     __getRandomDebugUsername(): string {

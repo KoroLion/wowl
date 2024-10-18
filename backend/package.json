@@ -2,7 +2,7 @@
   "license": "MIT",
   "scripts": {
     "lint": "eslint src/backend/**/*.ts",
-    "watchTs": "npx tsc -w",
+    "watchTS": "npx tsc -w",
     "dev": "node src/app.js",
     "build": "npx tsc"
   },

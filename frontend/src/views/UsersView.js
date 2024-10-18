@@ -1,6 +1,6 @@
 import AnalyserView from './AnalyserView.js';
 import VolumeControlView from './VolumeControlView.js';
-import { soundwave } from '../icons.js';
+import { soundwave } from '../utils/icons.js';
 export default class UsersView {
     constructor(el) {
         this.el = el;

@@ -5,6 +5,7 @@ class Room {
         this.name = name;
         this.uid = uid;
         this.ownerId = owner.id;
+        this.ownerUid = owner.uid;
         this.usersById = new Map();
     }
     addUser(user) {
@@ -16,6 +17,9 @@ class Room {
     getUsers() {
         return Array.from(this.usersById.values());
     }
+    hasUser(userId) {
+        return this.usersById.has(userId);
+    }
     serialize() {
         const serializedUsers = [];
         for (const user of this.getUsers()) {
@@ -25,6 +29,7 @@ class Room {
             uid: this.uid,
             name: this.name,
             ownerId: this.ownerId,
+            ownerUid: this.ownerUid,
             users: serializedUsers
         };
     }

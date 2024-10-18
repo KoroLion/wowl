@@ -34,7 +34,6 @@ class App {
     messageTextarea: HTMLTextAreaElement
     usernameLink: HTMLLinkElement
     userAvatarImg: HTMLImageElement
-    statsBtn: HTMLButtonElement
     disconnectBtn: HTMLButtonElement
     serviceStatusSpan: HTMLElement
     pcStatusSpan: HTMLElement
@@ -59,16 +58,25 @@ class App {
         this.users = [];
         this.rooms = new Map();
 
-        this.webrtcAdapter = new WebRTCAdapter()
+        this.webrtcAdapter = new WebRTCAdapter((data: SignallingMessageProtocol) => {
+            this.send(data)
+        })
 
         this.usersView = new UsersView(document.getElementById("membersList"));
-        this.mediaDeviceSelectView = new MediaDeviceSelectView('mediaDeviceSelect', () => {
-            window.localStorage.setItem('defaultAudioDeviceId', this.mediaDeviceSelectView.getDeviceId());
-        }, window.localStorage.getItem('defaultAudioDeviceId'));
+        this.mediaDeviceSelectView = new MediaDeviceSelectView(
+            document.getElementById('mediaDeviceSelect') as HTMLInputElement,
+            () => {
+                window.localStorage.setItem('defaultAudioDeviceId', this.mediaDeviceSelectView.getDeviceId());
+            },
+            window.localStorage.getItem('defaultAudioDeviceId')
+        );
         this.onlineUsersView = new OnlineUsersView(document.getElementById("onlineUsersView"));
-        this.roomsView = new RoomsView(document.getElementById("voiceRoomsView"), this.joinRoom.bind(this), (roomUid: string) => {
-        }, () => {
-        })
+        this.roomsView = new RoomsView(
+            document.getElementById("voiceRoomsView"),
+            this.joinRoom.bind(this),
+            (roomUid: string) => {},
+            () => {}
+        )
 
         this.connectSound = new Audio('sounds/awu.mp3');
         this.messageSound = new Audio('sounds/pickdilk.mp3')
@@ -79,7 +87,6 @@ class App {
         this.messageTextarea = document.getElementById("messageTextarea") as HTMLTextAreaElement
         this.usernameLink = document.getElementById("usernameLink") as HTMLLinkElement
         this.userAvatarImg = document.getElementById("userAvatarImg") as HTMLImageElement
-        this.statsBtn = document.getElementById("statsBtn") as HTMLButtonElement
         this.disconnectBtn = document.getElementById("disconnectBtn") as HTMLButtonElement
         this.serviceStatusSpan = document.getElementById("serviceStatusSpan")
         this.pcStatusSpan = document.getElementById("pcStatusSpan")
@@ -125,21 +132,17 @@ class App {
                     addMessage(this.messagesDiv, msg)
                     this.messageSound.play()
                 },
-                (candidate: RTCIceCandidate) => {
-                    this.send({
-                        to: user.id,
-                        command: 'candidate',
-                        data: candidate
-                    });
-                },
                 (stream: MediaStream) => {
                     user.stream = stream
                 }
             );
             this.send({
                 to: user.id,
-                command: 'offer',
-                data: offer
+                command: 'webrtc',
+                data: {
+                    type: "offer",
+                    offer: offer
+                }
             });
         }
     }
@@ -176,10 +179,8 @@ class App {
 
         if (active) {
             this.disconnectBtn.style.display = null;
-            this.statsBtn.style.display = null;
         } else {
             this.disconnectBtn.style.display = 'none';
-            this.statsBtn.style.display = 'none';
         }
 
         this.pcStatusSpan.innerHTML = (active) ? 'active' : 'inactive';
@@ -227,9 +228,6 @@ class App {
         this.disconnectBtn.addEventListener('click', () => {
             this.leave();
         });
-        this.statsBtn.addEventListener('click', async () => {
-            await this.infoToConsole();
-        });
         this.messageTextarea.addEventListener('keypress', (ev) => {
             if (ev.ctrlKey && ev.code === 'Enter') {
                 this.sendMessage();
@@ -265,10 +263,7 @@ class App {
             return;
         }
 
-        let jwt = '';
-        // if (!this.debug) {
-        jwt = await this.auth();
-        // }
+        const jwt = await this.auth();
         this.send({
             command: 'auth',
             data: jwt
@@ -409,9 +404,7 @@ class App {
                 setUsers: this.__setUsersReceived.bind(this),
                 setRooms: this.__setRoomsReceived.bind(this),
                 setActiveRoom: this.__setActiveRoomReceived.bind(this),
-                candidate: this.__candidateReceived.bind(this),
-                offer: this.__offerReceived.bind(this),
-                answer: this.__answerReceived.bind(this)
+                webrtc: this.__webrtcSignalReceived.bind(this),
             };
 
             const addr = this.__getWsAddr();
@@ -492,93 +485,42 @@ class App {
         this.muteBtn.innerHTML = (mute) ? 'Unmute' : 'Mute';
     }
 
-    async infoToConsole() {
-        if (this.active) {
-            for (const user of this.users) {
-                if (user.pc) {
-                    console.log(`RTC report for ${user.username}:`);
+    async __webrtcSignalReceived(from: number, data: SignallingData): Promise<void> {
+        if (!data.type) {
+            console.log("ERROR: WebRTC Signalling message must contain type")
+            return;
+        }
 
-                    let localCandidateId = null;
-                    let remoteCandidateId = null;
-                    const stats = await user.pc.getStats(null);
-                    stats.forEach((report) => {
-                        if (report.type === 'candidate-pair' && report.nominated && report.selected) {
-                            console.log(report);
-                            localCandidateId = report.localCandidateId;
-                            remoteCandidateId = report.remoteCandidateId;
-                        }
-                    });
+        const user = this.__getUser(from);
+        if (!user) {
+            console.log(`ERROR: unable to find user with id = ${from}`);
+            return;
+        }
 
-                    if (localCandidateId && remoteCandidateId) {
-                        stats.forEach((report) => {
-                            if (report.type === 'local-candidate' && report.id === localCandidateId) {
-                                console.log(report);
-                            } else if (report.type === 'remote-candidate' && report.id === remoteCandidateId) {
-                                console.log(report);
-                            }
-                        });
-                    } else {
-                        console.log('RTC connection not established yet!');
-                    }
-                }
+        if (data.type == "offer") {
+            if (!this.stream) {
+                this.stream = await this.__createMediaStream()
+                this.mute(this.muted);
+                this.setActive(true);
             }
-        }
-    }
 
-    async __offerReceived(offer: RTCSessionDescriptionInit, from: number): Promise<void> {
-        const user = this.__getUser(from);
-        if (!user) {
-            console.log(`ERROR: unable to find user with id = ${from}`);
-            return;
+            await this.webrtcAdapter.handleOffer(
+                user,
+                this.stream,
+                data.offer,
+                (msg: string) => {
+                    addMessage(this.messagesDiv, msg)
+                    this.messageSound.play()
+                },
+                (stream: MediaStream) => {
+                    user.stream = stream
+                }
+            )
+        } else if (data.type == "answer") {
+            await this.webrtcAdapter.handleAnswer(user, data.answer)
+        } else if (data.type === "candidate") {
+            await this.webrtcAdapter.handleCandidate(user, data.candidate)
         }
-
-        if (!this.stream) {
-            this.stream = await this.__createMediaStream()
-            this.mute(this.muted);
-            this.setActive(true);
-        }
-
-        const answer = await this.webrtcAdapter.handleOffer(
-            user,
-            this.stream,
-            offer,
-            (msg: string) => {
-                addMessage(this.messagesDiv, msg)
-                this.messageSound.play()
-            },
-            (candidate: RTCIceCandidate) => {
-                this.send({
-                    to: user.id,
-                    command: 'candidate',
-                    data: candidate
-                });
-            },
-            (stream: MediaStream) => {
-                user.stream = stream
-            })
-        this.send({
-            to: user.id,
-            command: 'answer',
-            data: answer
-        });
-    }
-
-    async __answerReceived(answer: RTCSessionDescriptionInit, from: number): Promise<void> {
-        const user = this.__getUser(from);
-        if (!user) {
-            console.log(`ERROR: unable to find user with id = ${from}`);
-            return;
-        }
-        await this.webrtcAdapter.handleAnswer(user, answer)
-    }
-
-    async __candidateReceived(candidate: RTCIceCandidate, from: number): Promise<void> {
-        const user = this.__getUser(from);
-        if (!user) {
-            console.log(`ERROR: unable to find user with id = ${from}`);
-            return;
-        }
-        await this.webrtcAdapter.handleCandidate(user, candidate)
     }
 }
 

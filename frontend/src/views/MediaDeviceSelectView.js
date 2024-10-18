@@ -1,6 +1,6 @@
 export default class MediaDeviceSelectView {
-    constructor(elId, onchange, defaultDeviceId) {
-        this.el = document.getElementById(elId);
+    constructor(el, onchange, defaultDeviceId) {
+        this.el = el;
         this.onchange = onchange;
         this.defaultDeviceId = defaultDeviceId;
         this.selected = false;
@@ -19,7 +19,7 @@ export default class MediaDeviceSelectView {
         }
         if (!this.selected && this.defaultDeviceId) {
             this.selected = true;
-            this.el.value = this.defaultDeviceId.toString();
+            this.el.value = this.defaultDeviceId;
         }
     }
 }
